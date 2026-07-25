@@ -1,6 +1,6 @@
 import 'dart:math';
 
-import '../models/models.dart';
+import 'models.dart';
 import 'rules.dart';
 import 'tick_engine.dart';
 
@@ -11,7 +11,7 @@ class AiPlayer {
 
   final Random _rng;
 
-  void act(GameState s, Empire empire, TickEngine engine) {
+  void act(GameState s, Empire empire) {
     final owned = s.planetsOf(empire.id).toList();
     if (owned.isEmpty) return;
 
@@ -20,7 +20,7 @@ class AiPlayer {
 
     // Roughly one raid consideration every 12 ticks per empire.
     if (_rng.nextInt(12) == 0) {
-      _raid(s, empire, owned, engine);
+      _raid(s, empire, owned);
     }
   }
 
@@ -85,8 +85,7 @@ class AiPlayer {
     home.garrison.add(type, count);
   }
 
-  void _raid(
-      GameState s, Empire empire, List<Planet> owned, TickEngine engine) {
+  void _raid(GameState s, Empire empire, List<Planet> owned) {
     final staging = owned.reduce(
         (a, b) => a.garrison.attackPower >= b.garrison.attackPower ? a : b);
     final strength = staging.garrison.attackPower;
@@ -129,9 +128,10 @@ class AiPlayer {
       originPlanetId: staging.id,
       targetPlanetId: best.id,
       fleet: force,
-      arrivalTick: s.tick + engine.travelTicks(staging, best),
+      arrivalTick: s.tick + TickEngine.travelTicks(staging, best),
     ));
-    if (best.ownerId == s.player.id) {
+    final targetOwner = s.empireById(best.ownerId);
+    if (targetOwner?.isPlayer ?? false) {
       s.log(
         'Long-range sensors detect a ${empire.name} fleet heading for '
         '${best.name} (${best.x},${best.y})!',

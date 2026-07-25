@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../game/game_controller.dart';
+import '../game/game_session.dart';
 import 'planet_screen.dart';
 import 'widgets.dart';
 
@@ -10,7 +10,7 @@ class EmpireScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final game = context.watch<GameController>();
+    final game = context.watch<GameSession>();
     final s = game.state!;
     final planets = s.planetsOf(s.player.id).toList()
       ..sort((a, b) => b.population.compareTo(a.population));
@@ -33,7 +33,7 @@ class EmpireScreen extends StatelessWidget {
                 const SizedBox(height: 6),
                 for (final e in standings)
                   StatRow(
-                    label: e.isPlayer ? '${e.name} (you)' : e.name,
+                    label: e.id == s.player.id ? '${e.name} (you)' : e.name,
                     value:
                         '${s.planetsOf(e.id).length} planets · tech ${e.techLevel}',
                   ),

@@ -1,0 +1,11 @@
+name: game_core
+description: Shared pure-Dart game engine for Galactic Conflict (models, galaxy generation, ticks, combat, AI). Used by both the Flutter app and the multiplayer server.
+version: 1.0.0
+publish_to: none
+
+environment:
+  sdk: ^3.8.0
+
+dev_dependencies:
+  lints: ^5.0.0
+  test: ^1.25.0

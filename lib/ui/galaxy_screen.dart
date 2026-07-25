@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../engine/galaxy_generator.dart';
-import '../game/game_controller.dart';
-import '../models/models.dart';
+import 'package:game_core/game_core.dart';
+
+import '../game/game_session.dart';
 import 'planet_screen.dart';
 
 /// Pan-and-zoom starmap. Tap a planet to inspect it.
@@ -12,7 +12,7 @@ class GalaxyScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final game = context.watch<GameController>();
+    final game = context.watch<GameSession>();
     final s = game.state!;
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -112,7 +112,7 @@ class _GalaxyPainter extends CustomPainter {
             ..color = color.withValues(alpha: 0.25)
             ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3));
       canvas.drawCircle(center, radius, Paint()..color = color);
-      if (owner?.isPlayer ?? false) {
+      if (owner != null && owner.id == state.player.id) {
         canvas.drawCircle(
             center,
             radius + 3,

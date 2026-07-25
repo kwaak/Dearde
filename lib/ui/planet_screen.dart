@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../engine/rules.dart';
-import '../game/game_controller.dart';
-import '../models/models.dart';
+
+import '../game/game_session.dart';
+import 'package:game_core/game_core.dart';
 import 'mission_dialog.dart';
 import 'widgets.dart';
 
@@ -14,7 +14,7 @@ class PlanetScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final game = context.watch<GameController>();
+    final game = context.watch<GameSession>();
     final s = game.state!;
     final planet = s.planetById(planetId);
     final owner = s.empireById(planet.ownerId);
@@ -111,7 +111,7 @@ class PlanetScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildingTile(BuildContext context, GameController game,
+  Widget _buildingTile(BuildContext context, GameSession game,
       Planet planet, BuildingType t) {
     final cost = GameRules.buildingCosts[t]!;
     final affordable = GameRules.canAfford(game.player, t) &&
@@ -124,11 +124,11 @@ class PlanetScreen extends StatelessWidget {
         isThreeLine: true,
         trailing: FilledButton.tonal(
           onPressed: affordable
-              ? () {
-                  final error = game.build(planet, t);
-                  if (error != null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(error)));
+              ? () async {
+                  final error = await game.build(planet, t);
+                  if (error != null && context.mounted) {
+                    ScaffoldMessenger.of(context)
+                        .showSnackBar(SnackBar(content: Text(error)));
                   }
                 }
               : null,
@@ -139,7 +139,7 @@ class PlanetScreen extends StatelessWidget {
   }
 
   Widget _shipTile(
-      BuildContext context, GameController game, Planet planet, ShipType t) {
+      BuildContext context, GameSession game, Planet planet, ShipType t) {
     final affordable = GameRules.canAffordShip(game.player, t, 1);
     return Card(
       child: ListTile(
@@ -168,17 +168,17 @@ class PlanetScreen extends StatelessWidget {
     );
   }
 
-  void _train(BuildContext context, GameController game, Planet planet,
-      ShipType t, int count) {
-    final error = game.trainShips(planet, t, count);
-    if (error != null) {
+  Future<void> _train(BuildContext context, GameSession game, Planet planet,
+      ShipType t, int count) async {
+    final error = await game.trainShips(planet, t, count);
+    if (error != null && context.mounted) {
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(error)));
     }
   }
 
   Future<void> _attackFromPicker(
-      BuildContext context, GameController game, Planet target) async {
+      BuildContext context, GameSession game, Planet target) async {
     final s = game.state!;
     final origins = s
         .planetsOf(s.player.id)

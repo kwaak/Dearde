@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../game/game_controller.dart';
-import '../models/models.dart';
+import '../game/game_session.dart';
+import 'package:game_core/game_core.dart';
 import 'widgets.dart';
 
 /// Full mission flow: pick a target, assemble a fleet, launch.
@@ -11,7 +11,7 @@ Future<void> showMissionDialog(
   required Planet origin,
   Planet? presetTarget,
 }) async {
-  final game = context.read<GameController>();
+  final game = context.read<GameSession>();
   final s = game.state!;
 
   var target = presetTarget;
@@ -108,13 +108,14 @@ Future<void> showMissionDialog(
               child: const Text('Cancel'),
             ),
             FilledButton(
-              onPressed: () {
-                final error = game.launchMission(
+              onPressed: () async {
+                final error = await game.launchMission(
                   origin: origin,
                   target: chosenTarget,
                   fleet: Fleet(selection),
                   kind: kind,
                 );
+                if (!context.mounted) return;
                 if (error != null) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text(error)),

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../game/game_controller.dart';
-import '../models/models.dart';
+import '../game/game_session.dart';
+import 'package:game_core/game_core.dart';
 
 /// Missions in flight, both yours and detected enemy movements.
 class FleetScreen extends StatelessWidget {
@@ -10,7 +10,7 @@ class FleetScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final game = context.watch<GameController>();
+    final game = context.watch<GameSession>();
     final s = game.state!;
     final mine = s.missions.where((m) => m.empireId == s.player.id).toList()
       ..sort((a, b) => a.arrivalTick.compareTo(b.arrivalTick));

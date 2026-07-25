@@ -1,4 +1,4 @@
-import '../models/models.dart';
+import 'models.dart';
 
 /// Static price list and shared game rules.
 class GameRules {

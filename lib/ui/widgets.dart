@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../models/models.dart';
+import 'package:game_core/game_core.dart';
 
 /// Compact number formatting: 12.3k, 4.5M.
 String fmt(int n) {

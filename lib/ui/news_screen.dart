@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../game/game_controller.dart';
+import '../game/game_session.dart';
 
 class NewsScreen extends StatelessWidget {
   const NewsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final game = context.watch<GameController>();
+    final game = context.watch<GameSession>();
     final events = game.state!.events;
     if (events.isEmpty) {
       return const Center(child: Text('Nothing has happened yet.'));

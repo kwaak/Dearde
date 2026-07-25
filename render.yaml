@@ -1,0 +1,21 @@
+# Render.com blueprint for the Galactic Conflict server.
+# Connect the repo in the Render dashboard and it picks this file up.
+#
+# NOTE: the free plan has no persistent disk, so the galaxy resets on every
+# deploy/restart. Uncomment the disk section on a paid plan to persist it.
+services:
+  - type: web
+    name: galactic-conflict
+    runtime: docker
+    dockerfilePath: server/Dockerfile
+    dockerContext: .
+    plan: free
+    envVars:
+      - key: TICK_SECONDS
+        value: "15"
+      - key: WORLD_FILE
+        value: /data/world.json
+    # disk:
+    #   name: gc-data
+    #   mountPath: /data
+    #   sizeGB: 1

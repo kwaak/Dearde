@@ -1,0 +1,32 @@
+# Fly.io config for the Galactic Conflict server.
+#
+# One-time setup (from the repository root):
+#   fly launch --copy-config --no-deploy   # pick your own app name
+#   fly volumes create gc_data --size 1
+#   fly deploy
+#
+# The app then lives at https://<your-app-name>.fly.dev — enter that address
+# in the app's "Online galaxy" screen.
+
+app = "galactic-conflict"
+primary_region = "ams"
+
+[build]
+  dockerfile = "server/Dockerfile"
+
+[env]
+  TICK_SECONDS = "15"
+  WORLD_FILE = "/data/world.json"
+
+[mounts]
+  source = "gc_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  # The machine may sleep when nobody plays; the server catches up missed
+  # ticks on wake, so the galaxy keeps its pace.
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0

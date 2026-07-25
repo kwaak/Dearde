@@ -1,11 +1,8 @@
 import 'dart:convert';
 import 'dart:math';
 
-import 'package:dearde/engine/combat.dart';
-import 'package:dearde/engine/galaxy_generator.dart';
-import 'package:dearde/engine/tick_engine.dart';
-import 'package:dearde/models/models.dart';
-import 'package:flutter_test/flutter_test.dart';
+import 'package:game_core/game_core.dart';
+import 'package:test/test.dart';
 
 void main() {
   group('GalaxyGenerator', () {
@@ -13,6 +10,7 @@ void main() {
       final s = GalaxyGenerator.generate(seed: 42, playerName: 'Testers');
       expect(s.empires.length, 4);
       expect(s.empires.where((e) => e.isPlayer).length, 1);
+      expect(s.player.name, 'Testers');
       for (final e in s.empires) {
         expect(s.planetsOf(e.id).length, 1,
             reason: 'each empire starts with one homeworld');
@@ -27,6 +25,33 @@ void main() {
       final a = GalaxyGenerator.generate(seed: 7, playerName: 'A');
       final b = GalaxyGenerator.generate(seed: 7, playerName: 'A');
       expect(jsonEncode(a.toJson()), jsonEncode(b.toJson()));
+    });
+
+    test('spawnEmpire adds empires dynamically without collisions', () {
+      final s = GalaxyGenerator.generateEmpty(seed: 3, neutralCount: 10);
+      for (var i = 0; i < 6; i++) {
+        GalaxyGenerator.spawnEmpire(s, name: 'Player $i', isHuman: true);
+      }
+      expect(s.empires.length, 6);
+      expect(s.planets.length, 16);
+      final coords = s.planets.map((p) => '${p.x},${p.y}').toSet();
+      expect(coords.length, s.planets.length);
+      final ids = s.empires.map((e) => e.id).toSet();
+      expect(ids.length, 6);
+    });
+  });
+
+  group('viewer perspective', () {
+    test('player getter follows viewerEmpireId', () {
+      final s = GalaxyGenerator.generateEmpty(seed: 9, neutralCount: 4);
+      GalaxyGenerator.spawnEmpire(s, name: 'Alice', isHuman: true);
+      final bob = GalaxyGenerator.spawnEmpire(s, name: 'Bob', isHuman: true);
+      s.viewerEmpireId = bob.id;
+      expect(s.player.name, 'Bob');
+
+      final restored = GameState.fromJson(
+          jsonDecode(jsonEncode(s.toJson())) as Map<String, dynamic>);
+      expect(restored.player.name, 'Bob');
     });
   });
 
@@ -148,9 +173,7 @@ void main() {
         ShipType.dreadnought: 30,
         ShipType.transport: 5,
       });
-      home.garrison.merge(force);
-      home.garrison.subtract(force);
-      final travel = engine.travelTicks(home, target);
+      final travel = TickEngine.travelTicks(home, target);
       s.missions.add(Mission(
         id: s.nextMissionId++,
         empireId: player.id,

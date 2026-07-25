@@ -7,15 +7,17 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  testWidgets('shows new game screen, then the empire after founding',
+  testWidgets('shows start screen, then the empire after founding',
       (tester) async {
     await tester.pumpWidget(const GalacticConflictApp());
     await tester.pumpAndSettle();
 
     expect(find.text('GALACTIC CONFLICT'), findsOneWidget);
     expect(find.text('Found your empire'), findsOneWidget);
+    expect(find.text('Join the galaxy'), findsOneWidget);
 
     await tester.tap(find.text('Found your empire'));
+    await tester.pump();
     await tester.pump();
 
     // Home shell with bottom navigation appears.

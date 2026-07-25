@@ -1,6 +1,6 @@
 import 'dart:math';
 
-import '../models/models.dart';
+import 'models.dart';
 
 /// Outcome of a battle over a planet.
 class BattleResult {

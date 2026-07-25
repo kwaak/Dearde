@@ -1,4 +1,4 @@
-name: Build Android APK
+name: CI
 
 on:
   push:
@@ -6,7 +6,38 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  game-core:
+    name: game_core tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/game_core
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      - run: dart pub get
+      - run: dart analyze
+      - run: dart test
+
+  server:
+    name: server tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      - run: dart pub get
+      - run: dart analyze
+      - run: dart test
+
+  apk:
+    name: Build Android APK
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -40,3 +71,28 @@ jobs:
           name: galactic-conflict-apk
           path: build/app/outputs/flutter-apk/app-release.apk
           retention-days: 30
+
+  server-image:
+    name: Publish server image
+    runs-on: ubuntu-latest
+    needs: [game-core, server]
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: server/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/dearde-server:latest
+            ghcr.io/${{ github.repository_owner }}/dearde-server:${{ github.sha }}

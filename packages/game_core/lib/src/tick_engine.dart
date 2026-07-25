@@ -1,6 +1,6 @@
 import 'dart:math';
 
-import '../models/models.dart';
+import 'models.dart';
 import 'ai.dart';
 import 'combat.dart';
 
@@ -38,7 +38,7 @@ class TickEngine {
     }
     _arriveMissions(s);
     for (final empire in s.empires.where((e) => !e.defeated && !e.isPlayer)) {
-      _ai.act(s, empire, this);
+      _ai.act(s, empire);
     }
     _checkEliminations(s);
   }
@@ -93,8 +93,9 @@ class TickEngine {
             min(planet.maxPopulation, planet.population + growth);
       }
     }
-    if (starving && empire.isPlayer) {
-      s.log('Famine! Your planets are starving — build more farms.',
+    // Throttled so an ongoing famine doesn't flood the news feed.
+    if (starving && empire.isPlayer && s.tick % 5 == 0) {
+      s.log('Famine strikes ${empire.name} — the population is starving!',
           important: true);
     }
 
@@ -103,7 +104,9 @@ class TickEngine {
       empire.research -= empire.nextTechCost;
       empire.techLevel++;
       if (empire.isPlayer) {
-        s.log('Research breakthrough! Technology level ${empire.techLevel}.',
+        s.log(
+            '${empire.name} achieved a research breakthrough: technology '
+            'level ${empire.techLevel}.',
             important: true);
       }
     }
@@ -151,15 +154,14 @@ class TickEngine {
     );
 
     final targetLabel = '${target.name} (${target.x},${target.y})';
+    final anyHuman = attacker.isPlayer || (defender?.isPlayer ?? false);
     if (result.captured) {
       target.ownerId = attacker.id;
       target.garrison = result.survivingAttackers;
-      if (attacker.isPlayer) {
-        s.log('Victory! Your forces captured $targetLabel.', important: true);
-      } else if (defender?.isPlayer ?? false) {
-        s.log('${attacker.name} captured your planet $targetLabel!',
-            important: true);
-      }
+      s.log(
+          '${attacker.name} captured $targetLabel'
+          '${defender != null ? ' from ${defender.name}' : ''}!',
+          important: anyHuman);
     } else if (result.attackerWon) {
       // Won the battle but no transports left to occupy: survivors return.
       mission.fleet
@@ -171,18 +173,15 @@ class TickEngine {
       _sendBack(s, mission);
       if (attacker.isPlayer) {
         s.log(
-            'Your fleet won at $targetLabel but had no transports left to '
-            'occupy it. Survivors are returning.',
+            "${attacker.name}'s fleet won at $targetLabel but had no "
+            'transports left to occupy it. Survivors are returning.',
             important: true);
       }
     } else {
-      if (attacker.isPlayer) {
-        s.log('Your attack on $targetLabel was repelled. The fleet was lost.',
-            important: true);
-      } else if (defender?.isPlayer ?? false) {
-        s.log('You repelled an attack by ${attacker.name} on $targetLabel!',
-            important: true);
-      }
+      s.log(
+          "${attacker.name}'s attack on $targetLabel was repelled"
+          '${defender != null ? ' by ${defender.name}' : ''}.',
+          important: anyHuman);
     }
   }
 
@@ -221,16 +220,13 @@ class TickEngine {
       final hasMissions = s.missions.any((m) => m.empireId == empire.id);
       if (!hasPlanets && !hasMissions) {
         empire.defeated = true;
-        s.log(
-          empire.isPlayer
-              ? 'Your empire has been wiped out. The galaxy forgets you...'
-              : '${empire.name} has been eliminated from the galaxy!',
-          important: true,
-        );
+        s.log('${empire.name} has been eliminated from the galaxy!',
+            important: true);
       }
     }
   }
 
-  int travelTicks(Planet a, Planet b) =>
+  /// Static so clients can compute travel times without an engine instance.
+  static int travelTicks(Planet a, Planet b) =>
       max(1, (a.distanceTo(b) * ticksPerDistance).ceil());
 }

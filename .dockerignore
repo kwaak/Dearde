@@ -1,0 +1,10 @@
+.git
+build/
+android/
+lib/
+test/
+.dart_tool/
+**/.dart_tool/
+**/pubspec.lock
+*.iml
+.github/

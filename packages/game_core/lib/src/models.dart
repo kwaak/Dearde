@@ -302,10 +302,16 @@ class GameState {
     required this.missions,
     required this.events,
     this.nextMissionId = 1,
+    this.viewerEmpireId,
   });
 
   final int seed;
   int tick;
+
+  /// The empire this copy of the state is viewed as. On a multiplayer server
+  /// this is stamped per-response so each client sees itself as [player];
+  /// null falls back to the first human empire (local single-player).
+  int? viewerEmpireId;
 
   /// Wall-clock time (ms since epoch) of the last processed tick, used for
   /// offline catch-up.
@@ -317,7 +323,8 @@ class GameState {
   final List<GameEvent> events;
   int nextMissionId;
 
-  Empire get player => empires.firstWhere((e) => e.isPlayer);
+  Empire get player =>
+      empireById(viewerEmpireId) ?? empires.firstWhere((e) => e.isPlayer);
 
   Empire? empireById(int? id) {
     if (id == null) return null;
@@ -349,6 +356,7 @@ class GameState {
         'missions': missions.map((m) => m.toJson()).toList(),
         'events': events.map((e) => e.toJson()).toList(),
         'nextMissionId': nextMissionId,
+        if (viewerEmpireId != null) 'viewerEmpireId': viewerEmpireId,
       };
 
   static GameState fromJson(Map<String, dynamic> json) => GameState(
@@ -368,5 +376,6 @@ class GameState {
             .map((e) => GameEvent.fromJson(e as Map<String, dynamic>))
             .toList(),
         nextMissionId: (json['nextMissionId'] as num?)?.toInt() ?? 1,
+        viewerEmpireId: (json['viewerEmpireId'] as num?)?.toInt(),
       );
 }

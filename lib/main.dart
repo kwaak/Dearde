@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'game/game_controller.dart';
+import 'game/game_session.dart';
+import 'game/session_manager.dart';
 import 'ui/home_shell.dart';
-import 'ui/new_game_screen.dart';
+import 'ui/start_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,21 +20,21 @@ class GalacticConflictApp extends StatefulWidget {
 
 class _GalacticConflictAppState extends State<GalacticConflictApp>
     with WidgetsBindingObserver {
-  late final GameController _game;
+  late final SessionManager _manager;
   late final Future<void> _initFuture;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _game = GameController();
-    _initFuture = _game.init();
+    _manager = SessionManager();
+    _initFuture = _manager.init();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _game.dispose();
+    _manager.dispose();
     super.dispose();
   }
 
@@ -42,14 +43,14 @@ class _GalacticConflictAppState extends State<GalacticConflictApp>
     // Persist the world whenever the app goes to the background.
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive) {
-      _game.save();
+      _manager.persist();
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider.value(
-      value: _game,
+      value: _manager,
       child: MaterialApp(
         title: 'Galactic Conflict',
         debugShowCheckedModeBanner: false,
@@ -70,9 +71,17 @@ class _GalacticConflictAppState extends State<GalacticConflictApp>
                 body: Center(child: CircularProgressIndicator()),
               );
             }
-            return Consumer<GameController>(
-              builder: (context, game, _) =>
-                  game.hasGame ? const HomeShell() : const NewGameScreen(),
+            return Consumer<SessionManager>(
+              builder: (context, manager, _) {
+                final session = manager.session;
+                if (session == null || !session.hasGame) {
+                  return const StartScreen();
+                }
+                return ChangeNotifierProvider<GameSession>.value(
+                  value: session,
+                  child: const HomeShell(),
+                );
+              },
             );
           },
         ),

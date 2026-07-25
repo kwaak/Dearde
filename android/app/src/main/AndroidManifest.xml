@@ -1,8 +1,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Online mode talks to a Galactic Conflict server. Cleartext stays
+         enabled so hobby servers without TLS (http://...) also work. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="Galactic Conflict"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"
