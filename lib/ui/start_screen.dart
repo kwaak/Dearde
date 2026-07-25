@@ -6,9 +6,12 @@ import '../game/session_manager.dart';
 
 /// Server address baked in at build time, e.g.
 /// `flutter build apk --dart-define=SERVER_URL=https://my-galaxy.fly.dev`.
-/// CI passes the repository variable SERVER_URL here, so released APKs come
-/// with the galaxy's address pre-filled.
-const String kDefaultServerUrl = String.fromEnvironment('SERVER_URL');
+/// CI passes the repository variable SERVER_URL here; when unset, the
+/// default galaxy below is used so APKs work out of the box.
+const String _envServerUrl = String.fromEnvironment('SERVER_URL');
+const String kDefaultServerUrl = _envServerUrl != ''
+    ? _envServerUrl
+    : 'http://h2945746.stratoserver.net:8080';
 
 /// Entry screen: join an online galaxy by founding a new empire or logging
 /// in with an existing token.
