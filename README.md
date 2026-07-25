@@ -49,7 +49,10 @@ engine as the app. Quick start:
 cd server && dart pub get && dart run bin/server.dart
 ```
 
-Then enter the server address on the app's start screen.
+Then enter the server address on the app's start screen — or bake it into
+the APK: set the repository variable `SERVER_URL` (GitHub → Settings →
+Secrets and variables → Actions → Variables) to your server's address and
+re-run CI; every APK built after that has the address pre-filled.
 Ready-made deploy configs are included for **Fly.io** (`fly.toml`, free tier
 with a persistent volume) and **Render** (`render.yaml`), plus a
 `server/Dockerfile` for any Docker host; CI publishes a prebuilt image to

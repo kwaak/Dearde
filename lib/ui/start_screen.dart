@@ -4,6 +4,12 @@ import 'package:provider/provider.dart';
 import '../game/game_session.dart';
 import '../game/session_manager.dart';
 
+/// Server address baked in at build time, e.g.
+/// `flutter build apk --dart-define=SERVER_URL=https://my-galaxy.fly.dev`.
+/// CI passes the repository variable SERVER_URL here, so released APKs come
+/// with the galaxy's address pre-filled.
+const String kDefaultServerUrl = String.fromEnvironment('SERVER_URL');
+
 /// Entry screen: join an online galaxy by founding a new empire or logging
 /// in with an existing token.
 class StartScreen extends StatefulWidget {
@@ -23,9 +29,7 @@ class _StartScreenState extends State<StartScreen> {
   void initState() {
     super.initState();
     final manager = context.read<SessionManager>();
-    if (manager.serverUrl != null) {
-      _serverUrl.text = manager.serverUrl!;
-    }
+    _serverUrl.text = manager.serverUrl ?? kDefaultServerUrl;
   }
 
   @override

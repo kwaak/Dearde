@@ -67,8 +67,11 @@ jobs:
       - name: Test
         run: flutter test
 
+      # Set the repository variable SERVER_URL (Settings → Secrets and
+      # variables → Actions → Variables) to bake your galaxy's address into
+      # the APK, so the start screen comes pre-filled.
       - name: Build release APK
-        run: flutter build apk --release
+        run: flutter build apk --release --dart-define=SERVER_URL=${{ vars.SERVER_URL }}
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
