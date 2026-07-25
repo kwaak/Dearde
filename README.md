@@ -5,14 +5,11 @@ empire games such as *Imperial Conflict*: found a space empire, develop your
 planets, raise fleets, and conquer the galaxy from rival empires — on a world
 that keeps ticking even while the app is closed.
 
-Two ways to play:
-
-- **Local empire** — everything runs on your phone against three AI rivals.
-  No server, no account; the galaxy is simulated on-device with offline
-  catch-up when you return.
-- **Online galaxy** — connect to a self-hosted
-  [Galactic Conflict server](server/README.md) and compete with other
-  players in one shared, persistent galaxy that ticks server-side.
+The app connects to a self-hosted
+[Galactic Conflict server](server/README.md): one shared, persistent galaxy
+that ticks server-side, where every player runs their own empire. Register
+an empire with just a name — the returned login token is your only
+credential.
 
 ## Gameplay
 
@@ -25,12 +22,13 @@ Two ways to play:
 - **Fleets** — build Fighters, Bombers, Transports, and Dreadnoughts.
   Fleets travel in real ticks across the starmap; attacks need at least one
   Transport to occupy a planet after winning the battle.
-- **Rivals** — three AI empires expand and raid on their own. Watch the
-  Fleets tab for incoming hostiles.
+- **Rivals** — the other players on your server. Watch the Fleets tab for
+  incoming hostiles.
 - **Victory** — control 60% of the galaxy's planets.
 
-One game tick is 5 seconds of real time. When you close the app the world
-catches up when you come back (capped, so a long absence doesn't ruin you).
+The server advances the galaxy one tick every 15 seconds by default
+(configurable). It keeps ticking while your app is closed — and if the
+server itself was down, it catches up the missed ticks on boot.
 
 ## Install on your phone (Android)
 
@@ -42,16 +40,16 @@ Every push builds an APK via GitHub Actions:
 3. Copy it to your phone (or download it there directly), open it, and allow
    installing from unknown sources when Android asks.
 
-## Host your own galaxy (multiplayer)
+## Host your galaxy
 
-The multiplayer server lives in [`server/`](server/README.md) and shares the
-exact same engine as the app. Quick start:
+The server lives in [`server/`](server/README.md) and shares the exact same
+engine as the app. Quick start:
 
 ```sh
 cd server && dart pub get && dart run bin/server.dart
 ```
 
-Then pick **Online galaxy** in the app and enter the server address.
+Then enter the server address on the app's start screen.
 Ready-made deploy configs are included for **Fly.io** (`fly.toml`, free tier
 with a persistent volume) and **Render** (`render.yaml`), plus a
 `server/Dockerfile` for any Docker host; CI publishes a prebuilt image to
@@ -75,8 +73,8 @@ flutter build apk                             # release APK
 packages/game_core/   shared pure-Dart engine: models, galaxy generation,
                       ticks, combat, AI, validated player actions
 server/               multiplayer server: shared galaxy, REST API, Docker
-lib/game/             sessions: local (on-device sim) and remote (API client),
-                      session manager with stored credentials
+lib/game/             GameSession (API client with polling) and the session
+                      manager with stored server credentials
 lib/ui/               screens: start, empire overview, starmap, planet,
                       fleets, news
 ```

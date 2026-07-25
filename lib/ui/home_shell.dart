@@ -32,27 +32,20 @@ class _HomeShellState extends State<HomeShell> {
       appBar: AppBar(
         title: Text(_titles[_index]),
         actions: [
-          if (game.isRemote)
-            Padding(
-              padding: const EdgeInsets.only(right: 4),
-              child: Icon(
-                game.connectionError == null ? Icons.cloud_done : Icons.cloud_off,
-                color: game.connectionError == null
-                    ? Colors.lightGreenAccent
-                    : Colors.redAccent,
-              ),
+          Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: Icon(
+              game.connectionError == null ? Icons.cloud_done : Icons.cloud_off,
+              color: game.connectionError == null
+                  ? Colors.lightGreenAccent
+                  : Colors.redAccent,
             ),
+          ),
           PopupMenuButton<String>(
             onSelected: (v) => _onMenu(context, v),
-            itemBuilder: (context) => [
-              if (game.isRemote) ...[
-                const PopupMenuItem(
-                    value: 'token', child: Text('Show login token')),
-                const PopupMenuItem(
-                    value: 'disconnect', child: Text('Disconnect')),
-              ] else
-                const PopupMenuItem(
-                    value: 'abandon', child: Text('Abandon game')),
+            itemBuilder: (context) => const [
+              PopupMenuItem(value: 'token', child: Text('Show login token')),
+              PopupMenuItem(value: 'disconnect', child: Text('Disconnect')),
             ],
           ),
         ],
@@ -60,7 +53,7 @@ class _HomeShellState extends State<HomeShell> {
       body: Column(
         children: [
           ResourceBar(empire: s.player, tick: s.tick),
-          if (game.isRemote && game.connectionError != null)
+          if (game.connectionError != null)
             MaterialBanner(
               backgroundColor: Colors.orange.shade900,
               content: Text('Connection problem: ${game.connectionError}'),
@@ -73,7 +66,7 @@ class _HomeShellState extends State<HomeShell> {
                   : Colors.red.shade900,
               content: Text(victor.id == s.player.id
                   ? '🏆 You rule the galaxy! You control most known planets.'
-                  : '${victor.name} now rules the galaxy. Fight on or start over.'),
+                  : '${victor.name} now rules the galaxy. Fight on!'),
               actions: const [SizedBox.shrink()],
             )
           else if (game.playerDefeated)
@@ -112,29 +105,8 @@ class _HomeShellState extends State<HomeShell> {
   Future<void> _onMenu(BuildContext context, String value) async {
     final manager = context.read<SessionManager>();
     switch (value) {
-      case 'abandon':
-        final sure = await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('Abandon empire?'),
-            content:
-                const Text('This deletes your local game permanently.'),
-            actions: [
-              TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text('Cancel')),
-              FilledButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  child: const Text('Abandon')),
-            ],
-          ),
-        );
-        if (sure ?? false) {
-          await manager.abandonLocalGame();
-        }
       case 'token':
         final token = manager.serverToken ?? '';
-        if (!context.mounted) return;
         await showDialog<void>(
           context: context,
           builder: (context) => AlertDialog(
@@ -186,7 +158,7 @@ class _HomeShellState extends State<HomeShell> {
           ),
         );
         if (forget == null) return;
-        await manager.disconnectOnline(forgetCredentials: forget);
+        await manager.disconnect(forgetCredentials: forget);
     }
   }
 }

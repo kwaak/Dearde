@@ -2,13 +2,10 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'game_session.dart';
-import 'local_game_session.dart';
-import 'remote_game_session.dart';
 
-/// Chooses and owns the active [GameSession] (local or online) and remembers
-/// the choice — including server credentials — across app launches.
+/// Owns the active [GameSession] and remembers the server credentials
+/// across app launches.
 class SessionManager extends ChangeNotifier {
-  static const _modeKey = 'dearde_mode';
   static const _serverUrlKey = 'dearde_server_url';
   static const _serverTokenKey = 'dearde_server_token';
 
@@ -22,48 +19,23 @@ class SessionManager extends ChangeNotifier {
   String? _serverToken;
   String? get serverToken => _serverToken;
 
-  /// Restores the previous session on app start, if any.
+  /// Reconnects to the previous galaxy on app start, if credentials exist.
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
-    final mode = prefs.getString(_modeKey);
     _serverUrl = prefs.getString(_serverUrlKey);
     _serverToken = prefs.getString(_serverTokenKey);
 
-    if (mode == 'local') {
-      final local = LocalGameSession();
-      await local.init();
-      if (local.hasGame) {
-        _adopt(local);
-      } else {
-        local.dispose();
-        await prefs.remove(_modeKey);
-      }
-    } else if (mode == 'remote' &&
-        _serverUrl != null &&
-        _serverToken != null) {
-      final remote =
-          RemoteGameSession(baseUrl: _serverUrl!, token: _serverToken!);
+    if (_serverUrl != null && _serverToken != null) {
+      final session = GameSession(baseUrl: _serverUrl!, token: _serverToken!);
       try {
-        await remote.init();
-        _adopt(remote);
+        await session.init();
+        _adopt(session);
       } on ServerException catch (e) {
         // Keep the credentials; the start screen offers a reconnect.
         debugPrint('Reconnect failed: ${e.message}');
-        remote.dispose();
+        session.dispose();
       }
     }
-    notifyListeners();
-  }
-
-  Future<void> startLocalGame(String empireName) async {
-    final local = LocalGameSession();
-    await local.init();
-    if (!local.hasGame) {
-      local.newGame(playerName: empireName);
-    }
-    _adopt(local);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_modeKey, 'local');
     notifyListeners();
   }
 
@@ -72,9 +44,9 @@ class SessionManager extends ChangeNotifier {
     required String url,
     required String empireName,
   }) async {
-    final baseUrl = RemoteGameSession.normalizeUrl(url);
-    final token = await RemoteGameSession.register(
-        baseUrl: baseUrl, empireName: empireName);
+    final baseUrl = GameSession.normalizeUrl(url);
+    final token =
+        await GameSession.register(baseUrl: baseUrl, empireName: empireName);
     await connectOnline(url: baseUrl, token: token);
   }
 
@@ -83,44 +55,28 @@ class SessionManager extends ChangeNotifier {
     required String url,
     required String token,
   }) async {
-    final baseUrl = RemoteGameSession.normalizeUrl(url);
-    final remote = RemoteGameSession(baseUrl: baseUrl, token: token.trim());
-    await remote.init(); // throws ServerException on failure
-    _adopt(remote);
+    final baseUrl = GameSession.normalizeUrl(url);
+    final session = GameSession(baseUrl: baseUrl, token: token.trim());
+    await session.init(); // throws ServerException on failure
+    _adopt(session);
     _serverUrl = baseUrl;
     _serverToken = token.trim();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_modeKey, 'remote');
     await prefs.setString(_serverUrlKey, baseUrl);
     await prefs.setString(_serverTokenKey, token.trim());
     notifyListeners();
   }
 
-  /// Abandons a local game (deletes the save) and returns to the start
-  /// screen.
-  Future<void> abandonLocalGame() async {
-    final s = _session;
-    if (s is LocalGameSession) {
-      await s.deleteSave();
-    }
-    await _clearSession(clearCredentials: false);
-  }
-
   /// Disconnects from the server. The empire lives on server-side; with the
   /// token the player can log back in. [forgetCredentials] also wipes the
   /// stored token.
-  Future<void> disconnectOnline({bool forgetCredentials = false}) async {
-    await _clearSession(clearCredentials: forgetCredentials);
-  }
-
-  Future<void> _clearSession({required bool clearCredentials}) async {
+  Future<void> disconnect({bool forgetCredentials = false}) async {
     _session?.dispose();
     _session = null;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_modeKey);
-    if (clearCredentials) {
+    if (forgetCredentials) {
       _serverUrl = null;
       _serverToken = null;
+      final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_serverUrlKey);
       await prefs.remove(_serverTokenKey);
     }
@@ -131,8 +87,6 @@ class SessionManager extends ChangeNotifier {
     _session?.dispose();
     _session = session;
   }
-
-  Future<void> persist() async => _session?.persist();
 
   @override
   void dispose() {

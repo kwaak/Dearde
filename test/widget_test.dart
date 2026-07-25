@@ -7,22 +7,13 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  testWidgets('shows start screen, then the empire after founding',
-      (tester) async {
+  testWidgets('shows the join-a-galaxy start screen', (tester) async {
     await tester.pumpWidget(const GalacticConflictApp());
     await tester.pumpAndSettle();
 
     expect(find.text('GALACTIC CONFLICT'), findsOneWidget);
-    expect(find.text('Found your empire'), findsOneWidget);
+    expect(find.text('Server address'), findsOneWidget);
     expect(find.text('Join the galaxy'), findsOneWidget);
-
-    await tester.tap(find.text('Found your empire'));
-    await tester.pump();
-    await tester.pump();
-
-    // Home shell with bottom navigation appears.
-    expect(find.text('Galaxy'), findsOneWidget);
-    expect(find.text('Fleets'), findsOneWidget);
-    expect(find.text('Terran Empire (you)'), findsOneWidget);
+    expect(find.text('Log in with an existing token'), findsOneWidget);
   });
 }

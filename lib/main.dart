@@ -18,33 +18,21 @@ class GalacticConflictApp extends StatefulWidget {
   State<GalacticConflictApp> createState() => _GalacticConflictAppState();
 }
 
-class _GalacticConflictAppState extends State<GalacticConflictApp>
-    with WidgetsBindingObserver {
+class _GalacticConflictAppState extends State<GalacticConflictApp> {
   late final SessionManager _manager;
   late final Future<void> _initFuture;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     _manager = SessionManager();
     _initFuture = _manager.init();
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
     _manager.dispose();
     super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Persist the world whenever the app goes to the background.
-    if (state == AppLifecycleState.paused ||
-        state == AppLifecycleState.inactive) {
-      _manager.persist();
-    }
   }
 
   @override

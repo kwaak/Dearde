@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../game/remote_game_session.dart';
+import '../game/game_session.dart';
 import '../game/session_manager.dart';
 
-/// Entry screen: found a local empire or join an online galaxy.
+/// Entry screen: join an online galaxy by founding a new empire or logging
+/// in with an existing token.
 class StartScreen extends StatefulWidget {
   const StartScreen({super.key});
 
@@ -13,9 +14,8 @@ class StartScreen extends StatefulWidget {
 }
 
 class _StartScreenState extends State<StartScreen> {
-  final _localName = TextEditingController(text: 'Terran Empire');
   final _serverUrl = TextEditingController();
-  final _onlineName = TextEditingController();
+  final _empireName = TextEditingController();
   final _loginToken = TextEditingController();
   bool _busy = false;
 
@@ -30,9 +30,8 @@ class _StartScreenState extends State<StartScreen> {
 
   @override
   void dispose() {
-    _localName.dispose();
     _serverUrl.dispose();
-    _onlineName.dispose();
+    _empireName.dispose();
     _loginToken.dispose();
     super.dispose();
   }
@@ -81,77 +80,33 @@ class _StartScreenState extends State<StartScreen> {
                 const SizedBox(height: 4),
                 Text(
                   'A tribute to the classic persistent browser empire games. '
-                  'Build planets, raise fleets, conquer the galaxy.',
+                  'Join a shared galaxy, build planets, raise fleets, and '
+                  'outgrow the other players — the world keeps ticking even '
+                  'while you are away.',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
                 const SizedBox(height: 24),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Text('Local empire',
-                            style: Theme.of(context).textTheme.titleMedium),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Play offline against three AI rivals. The galaxy '
-                          'lives on this phone.',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: _localName,
-                          decoration: const InputDecoration(
-                            labelText: 'Name your empire',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        FilledButton.icon(
-                          icon: const Icon(Icons.rocket_launch),
-                          label: const Text('Found your empire'),
-                          onPressed: _busy
-                              ? null
-                              : () => _run(() => context
-                                  .read<SessionManager>()
-                                  .startLocalGame(_localName.text)),
-                        ),
-                      ],
-                    ),
+                if (canReconnect) ...[
+                  FilledButton.icon(
+                    icon: const Icon(Icons.sync),
+                    label: Text('Reconnect to ${manager.serverUrl}'),
+                    onPressed: _busy
+                        ? null
+                        : () => _run(() => context
+                            .read<SessionManager>()
+                            .connectOnline(
+                                url: manager.serverUrl!,
+                                token: manager.serverToken!)),
                   ),
-                ),
-                const SizedBox(height: 12),
+                  const SizedBox(height: 12),
+                ],
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Text('Online galaxy',
-                            style: Theme.of(context).textTheme.titleMedium),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Join a shared galaxy on a Galactic Conflict '
-                          'server and compete with other players.',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                        const SizedBox(height: 12),
-                        if (canReconnect) ...[
-                          FilledButton.tonalIcon(
-                            icon: const Icon(Icons.sync),
-                            label: Text('Reconnect to ${manager.serverUrl}'),
-                            onPressed: _busy
-                                ? null
-                                : () => _run(() => context
-                                    .read<SessionManager>()
-                                    .connectOnline(
-                                        url: manager.serverUrl!,
-                                        token: manager.serverToken!)),
-                          ),
-                          const SizedBox(height: 12),
-                        ],
                         TextField(
                           controller: _serverUrl,
                           decoration: const InputDecoration(
@@ -163,7 +118,7 @@ class _StartScreenState extends State<StartScreen> {
                         ),
                         const SizedBox(height: 12),
                         TextField(
-                          controller: _onlineName,
+                          controller: _empireName,
                           decoration: const InputDecoration(
                             labelText: 'New empire name',
                             border: OutlineInputBorder(),
@@ -171,7 +126,7 @@ class _StartScreenState extends State<StartScreen> {
                         ),
                         const SizedBox(height: 12),
                         FilledButton.icon(
-                          icon: const Icon(Icons.public),
+                          icon: const Icon(Icons.rocket_launch),
                           label: const Text('Join the galaxy'),
                           onPressed: _busy
                               ? null
@@ -179,7 +134,7 @@ class _StartScreenState extends State<StartScreen> {
                                   .read<SessionManager>()
                                   .registerOnline(
                                       url: _serverUrl.text,
-                                      empireName: _onlineName.text)),
+                                      empireName: _empireName.text)),
                         ),
                         ExpansionTile(
                           title: const Text('Log in with an existing token'),
@@ -209,6 +164,13 @@ class _StartScreenState extends State<StartScreen> {
                       ],
                     ),
                   ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'No server yet? Hosting one is free — see server/README.md '
+                  'in the repository.',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall,
                 ),
                 if (_busy) ...[
                   const SizedBox(height: 16),
