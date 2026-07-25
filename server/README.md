@@ -47,6 +47,22 @@ the app.
 configures everything. Note the free plan has no persistent disk, so the
 galaxy resets on redeploys.
 
+**Your own VPS** (via GitHub Actions — no registry needed):
+
+1. Add repository secrets (GitHub → Settings → Secrets and variables →
+   Actions): `VPS_HOST`, `VPS_USER`, and `VPS_SSH_KEY` (a private key whose
+   public half is on the VPS in `~/.ssh/authorized_keys`). Optional:
+   `VPS_SSH_PORT` (default 22) and a repository *variable* `VPS_HTTP_PORT`
+   (default 8080). The VPS needs Docker, and the SSH user must be allowed
+   to run it.
+2. Run the **Deploy server to VPS** workflow from the Actions tab. It
+   builds the image, streams it over SSH, starts the container with a
+   persistent `gc_data` volume and `--restart unless-stopped`, and health-
+   checks it.
+3. Set the repository variable `SERVER_URL` to `http://<VPS_HOST>:8080` so
+   new APKs come with the address pre-filled. (For HTTPS, put a reverse
+   proxy like Caddy or nginx with TLS in front and use that URL instead.)
+
 **Anywhere with Docker**:
 
 ```sh

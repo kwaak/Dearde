@@ -1,0 +1,93 @@
+name: Deploy server to VPS
+
+# Manual deploy of the game server to your own VPS over SSH.
+#
+# One-time setup — add these repository secrets (Settings → Secrets and
+# variables → Actions → Secrets):
+#   VPS_HOST      hostname or IP of the VPS
+#   VPS_USER      SSH user (must be able to run docker)
+#   VPS_SSH_KEY   private key (OpenSSH format) whose public half is in the
+#                 user's ~/.ssh/authorized_keys on the VPS
+# Optional:
+#   VPS_SSH_PORT  SSH port, default 22
+#   VPS_HTTP_PORT public port for the game server, default 8080
+#
+# Requirements on the VPS: Docker installed, and the SSH user able to use it.
+# The image is built here and streamed over SSH — the VPS never needs
+# registry credentials. World data persists in the `gc_data` Docker volume.
+#
+# Afterwards, set the repository variable SERVER_URL to
+# http://<VPS_HOST>:<port> so freshly built APKs come pre-filled.
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-vps
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build server image
+        run: docker build -f server/Dockerfile -t dearde-server:latest .
+
+      - name: Prepare SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "${VPS_SSH_PORT:-22}" -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Ship image and (re)start the server
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+          VPS_HTTP_PORT: ${{ vars.VPS_HTTP_PORT }}
+        run: |
+          SSH="ssh -i ~/.ssh/deploy_key -p ${VPS_SSH_PORT:-22} $VPS_USER@$VPS_HOST"
+          HTTP_PORT="${VPS_HTTP_PORT:-8080}"
+
+          echo "Streaming image to $VPS_HOST..."
+          docker save dearde-server:latest | gzip | $SSH 'gunzip | docker load'
+
+          echo "Restarting container..."
+          $SSH "
+            set -e
+            docker volume create gc_data >/dev/null
+            docker rm -f galactic-conflict >/dev/null 2>&1 || true
+            docker run -d --name galactic-conflict \
+              --restart unless-stopped \
+              -p ${HTTP_PORT}:8080 \
+              -v gc_data:/data \
+              dearde-server:latest
+          "
+
+      - name: Health check
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+          VPS_HTTP_PORT: ${{ vars.VPS_HTTP_PORT }}
+        run: |
+          SSH="ssh -i ~/.ssh/deploy_key -p ${VPS_SSH_PORT:-22} $VPS_USER@$VPS_HOST"
+          HTTP_PORT="${VPS_HTTP_PORT:-8080}"
+          for i in $(seq 1 10); do
+            if $SSH "curl -fsS http://localhost:${HTTP_PORT}/health"; then
+              echo
+              echo "Server is up: http://$VPS_HOST:${HTTP_PORT}"
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "Server did not become healthy; container logs:"
+          $SSH 'docker logs --tail 50 galactic-conflict' || true
+          exit 1
