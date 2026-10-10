@@ -3,15 +3,18 @@
 Online Connect Four for two players, plus a mode for two players on one
 device. Plain Node.js (no npm dependencies) and a single static page.
 
-- **Online:** player 1 taps *Nieuw online spel* and shares the 4-letter code
-  or the invite link (`/?r=CODE`). Player 2 joins with that code. Moves
+- **Online (two phones):** phone 1 taps *Nieuw online spel* and shows a QR
+  code. Phone 2 scans it, or types the 4-letter code or opens the invite
+  link (`/?r=CODE`), enters a name and taps *Meedoen*. Moves
   stream live through Server-Sent Events. If you refresh, you rejoin
   automatically. *Nog een potje* starts a rematch, and the starting player
   alternates.
 - **Op één apparaat:** two players take turns on the same screen.
 
 Rooms live in memory. A server restart clears running games, and idle rooms
-are removed after 6 hours.
+are removed after 6 hours. The QR code uses the vendored MIT-licensed
+[qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator)
+(`public/vendor/qrcode.js`).
 
 ## Local development
 

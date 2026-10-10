@@ -75,6 +75,8 @@
   @keyframes pulse { to { filter: brightness(1.35); } }
 
   .share { display: flex; flex-direction: column; gap: 8px; align-items: center; text-align: center; }
+  .qr { background: #fff; border-radius: 12px; padding: 10px; width: 200px; height: 200px; }
+  .qr svg { width: 100%; height: 100%; display: block; }
   .code { font-size: 2.2rem; font-weight: 800; letter-spacing: 8px; }
   .muted { color: var(--muted); font-size: .9rem; }
   .actions { display: flex; gap: 10px; }
@@ -107,7 +109,9 @@
     <div class="status" id="status"></div>
 
     <div class="card share hidden" id="share">
-      <div class="muted">Deel deze code met je tegenstander</div>
+      <div class="muted">Scan met de andere telefoon</div>
+      <div class="qr" id="shareQr"></div>
+      <div class="muted">of vul daar deze code in</div>
       <div class="code" id="shareCode"></div>
       <button id="copyBtn" class="secondary">Kopieer uitnodigingslink</button>
     </div>
@@ -122,6 +126,7 @@
   </section>
 </div>
 
+<script src="vendor/qrcode.js"></script>
 <script>
 (() => {
   const ROWS = 6, COLS = 7;
@@ -204,6 +209,13 @@
     const waiting = mode === 'online' && !s.players[1];
     $('share').classList.toggle('hidden', !waiting);
     $('shareCode').textContent = s.code || '';
+    if (waiting && $('shareQr').dataset.code !== s.code) {
+      const qr = qrcode(0, 'M');
+      qr.addData(inviteLink());
+      qr.make();
+      $('shareQr').innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
+      $('shareQr').dataset.code = s.code;
+    }
     boardEl.classList.toggle('locked', !myTurn());
 
     let text;
@@ -297,8 +309,10 @@
   };
   $('codeInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('joinBtn').click(); });
 
+  const inviteLink = () => `${location.origin}${location.pathname}?r=${session.code}`;
+
   $('copyBtn').onclick = async () => {
-    const link = `${location.origin}${location.pathname}?r=${session.code}`;
+    const link = inviteLink();
     try {
       if (navigator.share) await navigator.share({ title: 'Vier op een rij', text: 'Speel tegen me!', url: link });
       else { await navigator.clipboard.writeText(link); $('copyBtn').textContent = 'Gekopieerd!'; }
@@ -376,6 +390,10 @@
     if (store.get('vier.room.' + invite.toUpperCase()) || $('nameInput').value) {
       join(invite).catch((e) => { $('lobbyError').textContent = e.message; });
     } else {
+      $('lobbyError').textContent = `Vul je naam in en tik op Meedoen om bij spel ${invite.toUpperCase()} te komen`;
+      $('lobbyError').style.color = 'var(--text)';
+      $('joinBtn').classList.remove('secondary');
+      $('createBtn').classList.add('secondary');
       $('nameInput').focus();
     }
   }
