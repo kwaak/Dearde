@@ -1,0 +1,9 @@
+services:
+  vier-op-een-rij:
+    build: .
+    container_name: vier-op-een-rij
+    restart: unless-stopped
+    ports:
+      # Public by default so the game works straight away on http://<vps>:8095.
+      # Behind a host nginx reverse proxy, set GAME_BIND=127.0.0.1 in .env.
+      - "${GAME_BIND:-0.0.0.0}:${GAME_PORT:-8095}:8080"

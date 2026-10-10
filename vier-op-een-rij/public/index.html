@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1b2a4a">
+<title>Vier op een rij</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='44' fill='%23f2c14e'/></svg>">
+<style>
+  :root {
+    --bg: #1b2a4a; --panel: #24375f; --board: #2f6fde; --hole: #14213d;
+    --p0: #e63946; --p1: #f2c14e; --text: #f1f5ff; --muted: #9fb0d4; --ok: #3fb950;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg); color: var(--text);
+    display: flex; justify-content: center; padding: 16px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .app { width: 100%; max-width: 520px; display: flex; flex-direction: column; gap: 16px; }
+  h1 { font-size: 1.6rem; text-align: center; letter-spacing: .5px; }
+  h1 .d0 { color: var(--p0); } h1 .d1 { color: var(--p1); }
+  .card { background: var(--panel); border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+  .card h2 { font-size: 1.05rem; }
+  label { font-size: .85rem; color: var(--muted); }
+  input {
+    width: 100%; padding: 12px; border-radius: 10px; border: 2px solid transparent;
+    background: var(--hole); color: var(--text); font-size: 1rem;
+  }
+  input:focus { outline: none; border-color: var(--board); }
+  #codeInput { text-transform: uppercase; letter-spacing: 4px; font-weight: 700; text-align: center; }
+  button {
+    padding: 12px 16px; border: 0; border-radius: 10px; font-size: 1rem; font-weight: 700;
+    cursor: pointer; background: var(--board); color: #fff;
+  }
+  button.secondary { background: transparent; border: 2px solid var(--board); }
+  button:disabled { opacity: .5; cursor: default; }
+  .row { display: flex; gap: 10px; }
+  .row > * { flex: 1; }
+  .error { color: #ff8a8a; font-size: .9rem; min-height: 1.2em; text-align: center; }
+  .hidden { display: none !important; }
+
+  .players { display: flex; gap: 10px; }
+  .player {
+    flex: 1; background: var(--panel); border-radius: 12px; padding: 10px 12px;
+    display: flex; align-items: center; gap: 10px; border: 3px solid transparent; transition: border-color .2s;
+  }
+  .player.active { border-color: var(--text); }
+  .player .disc { width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; }
+  .player .name { flex: 1; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .player .score { font-size: 1.3rem; font-weight: 800; }
+  .player .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+  .player .dot.on { background: var(--ok); }
+  .status { text-align: center; font-weight: 700; font-size: 1.1rem; min-height: 1.5em; }
+
+  .board {
+    background: var(--board); border-radius: 14px; padding: 8px;
+    display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.35); touch-action: manipulation;
+  }
+  .cell {
+    aspect-ratio: 1; border-radius: 50%; background: var(--hole); position: relative; overflow: hidden;
+    cursor: pointer;
+  }
+  .board.locked .cell { cursor: default; }
+  .cell .chip { position: absolute; inset: 0; border-radius: 50%; }
+  .cell .chip.s0 { background: radial-gradient(circle at 35% 35%, #ff6b76, var(--p0)); }
+  .cell .chip.s1 { background: radial-gradient(circle at 35% 35%, #ffe08a, var(--p1)); }
+  .cell .chip.drop { animation: drop .35s cubic-bezier(.4,0,.8,1.2); }
+  .cell .chip.win { box-shadow: inset 0 0 0 4px #fff; animation: pulse 0.8s infinite alternate; }
+  .cell.hover { background: #1d2f55; }
+  @keyframes drop { from { transform: translateY(var(--from, -600%)); } to { transform: translateY(0); } }
+  @keyframes pulse { to { filter: brightness(1.35); } }
+
+  .share { display: flex; flex-direction: column; gap: 8px; align-items: center; text-align: center; }
+  .code { font-size: 2.2rem; font-weight: 800; letter-spacing: 8px; }
+  .muted { color: var(--muted); font-size: .9rem; }
+  .actions { display: flex; gap: 10px; }
+  .actions > * { flex: 1; }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>Vier <span class="d0">●</span> op een rij <span class="d1">●</span></h1>
+
+  <!-- Lobby -->
+  <section id="lobby" class="card">
+    <label for="nameInput">Je naam</label>
+    <input id="nameInput" maxlength="20" placeholder="Bijv. Koe" autocomplete="nickname">
+    <button id="createBtn">Nieuw online spel</button>
+    <div class="row">
+      <input id="codeInput" maxlength="4" placeholder="CODE" autocomplete="off" inputmode="text">
+      <button id="joinBtn" class="secondary">Meedoen</button>
+    </div>
+    <button id="localBtn" class="secondary">Op één apparaat spelen</button>
+    <div class="error" id="lobbyError"></div>
+  </section>
+
+  <!-- Game -->
+  <section id="game" class="hidden" style="display:flex;flex-direction:column;gap:14px">
+    <div class="players">
+      <div class="player" id="p0"><span class="disc" style="background:var(--p0)"></span><span class="dot"></span><span class="name"></span><span class="score">0</span></div>
+      <div class="player" id="p1"><span class="disc" style="background:var(--p1)"></span><span class="dot"></span><span class="name"></span><span class="score">0</span></div>
+    </div>
+    <div class="status" id="status"></div>
+
+    <div class="card share hidden" id="share">
+      <div class="muted">Deel deze code met je tegenstander</div>
+      <div class="code" id="shareCode"></div>
+      <button id="copyBtn" class="secondary">Kopieer uitnodigingslink</button>
+    </div>
+
+    <div class="board" id="board"></div>
+    <div class="error" id="gameError"></div>
+
+    <div class="actions">
+      <button id="rematchBtn" class="hidden">Nog een potje</button>
+      <button id="leaveBtn" class="secondary">Verlaten</button>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+  const ROWS = 6, COLS = 7;
+  const $ = (id) => document.getElementById(id);
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+    del(k) { try { localStorage.removeItem(k); } catch {} },
+  };
+
+  let mode = null;        // 'online' | 'local'
+  let state = null;       // last rendered state
+  let session = null;     // { code, token }
+  let events = null;
+  let prevBoard = null;
+
+  // ---------- Board ----------
+  const boardEl = $('board');
+  const cells = [];
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.dataset.col = c;
+      boardEl.appendChild(cell);
+      cells.push(cell);
+    }
+  }
+  const cellAt = (r, c) => cells[r * COLS + c];
+
+  boardEl.addEventListener('click', (e) => {
+    const cell = e.target.closest('.cell');
+    if (cell) play(Number(cell.dataset.col));
+  });
+  boardEl.addEventListener('pointerover', (e) => {
+    const cell = e.target.closest('.cell');
+    cells.forEach((x) => x.classList.remove('hover'));
+    if (!cell || boardEl.classList.contains('locked')) return;
+    for (let r = 0; r < ROWS; r++) cellAt(r, Number(cell.dataset.col)).classList.add('hover');
+  });
+  boardEl.addEventListener('pointerleave', () => cells.forEach((x) => x.classList.remove('hover')));
+
+  function myTurn() {
+    if (!state || state.winner !== null) return false;
+    if (mode === 'local') return true;
+    return state.players[1] && state.turn === state.you;
+  }
+
+  function render(s) {
+    state = s;
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const v = s.board[r][c];
+        const cell = cellAt(r, c);
+        const had = prevBoard && prevBoard[r][c] !== null;
+        if (v === null) { cell.innerHTML = ''; continue; }
+        if (!cell.firstChild || !had) {
+          cell.innerHTML = `<div class="chip s${v}"></div>`;
+          if (prevBoard) {
+            cell.firstChild.classList.add('drop');
+            cell.firstChild.style.setProperty('--from', `${-(r + 1) * 110}%`);
+          }
+        } else {
+          cell.firstChild.className = `chip s${v}`;
+        }
+      }
+    }
+    prevBoard = s.board.map((row) => row.slice());
+    (s.winLine || []).forEach(([r, c]) => cellAt(r, c).firstChild && cellAt(r, c).firstChild.classList.add('win'));
+
+    for (const i of [0, 1]) {
+      const el = $('p' + i), p = s.players[i];
+      el.querySelector('.name').textContent = p ? p.name + (s.you === i ? ' (jij)' : '') : 'Wachten…';
+      el.querySelector('.score').textContent = s.scores[i];
+      el.querySelector('.dot').classList.toggle('on', mode === 'local' || !!(p && p.online));
+      el.querySelector('.dot').classList.toggle('hidden', mode === 'local');
+      el.classList.toggle('active', s.winner === null && s.turn === i && !!s.players[1]);
+    }
+
+    const waiting = mode === 'online' && !s.players[1];
+    $('share').classList.toggle('hidden', !waiting);
+    $('shareCode').textContent = s.code || '';
+    boardEl.classList.toggle('locked', !myTurn());
+
+    let text;
+    if (waiting) text = 'Wachten op tegenstander…';
+    else if (s.winner === 'draw') text = 'Gelijkspel!';
+    else if (s.winner !== null) {
+      text = mode === 'online'
+        ? (s.winner === s.you ? 'Je hebt gewonnen! 🎉' : `${s.players[s.winner].name} wint!`)
+        : `${s.players[s.winner].name} wint! 🎉`;
+    } else if (mode === 'local') text = `${s.players[s.turn].name} is aan de beurt`;
+    else text = s.turn === s.you ? 'Jij bent aan de beurt' : `${s.players[s.turn].name} is aan de beurt…`;
+    $('status').textContent = text;
+
+    const over = s.winner !== null;
+    $('rematchBtn').classList.toggle('hidden', !over);
+    if (over && mode === 'online') {
+      const asked = s.rematch[s.you];
+      const other = s.rematch[1 - s.you];
+      $('rematchBtn').disabled = asked;
+      $('rematchBtn').textContent = asked ? 'Wachten op tegenstander…' : other ? 'Accepteer rematch' : 'Nog een potje';
+    } else {
+      $('rematchBtn').disabled = false;
+      $('rematchBtn').textContent = 'Nog een potje';
+    }
+  }
+
+  function showGame() {
+    $('lobby').classList.add('hidden');
+    $('game').classList.remove('hidden');
+    $('gameError').textContent = '';
+  }
+
+  function showLobby() {
+    if (events) { events.close(); events = null; }
+    mode = null; state = null; session = null; prevBoard = null;
+    $('game').classList.add('hidden');
+    $('lobby').classList.remove('hidden');
+    history.replaceState(null, '', location.pathname);
+  }
+
+  // ---------- Online ----------
+  async function api(path, body) {
+    const res = await fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body || {}),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Er ging iets mis');
+    return data;
+  }
+
+  function myName() {
+    const n = $('nameInput').value.trim();
+    if (n) store.set('vier.name', n);
+    return n;
+  }
+
+  function startOnline(code, token) {
+    session = { code, token };
+    store.set('vier.room.' + code, token);
+    mode = 'online';
+    prevBoard = null;
+    history.replaceState(null, '', '?r=' + code);
+    showGame();
+    if (events) events.close();
+    events = new EventSource(`/api/rooms/${code}/events?token=${encodeURIComponent(token)}`);
+    events.onmessage = (e) => render(JSON.parse(e.data));
+    events.onerror = () => {
+      if (events.readyState === EventSource.CLOSED) $('gameError').textContent = 'Verbinding verbroken';
+    };
+  }
+
+  async function join(code) {
+    code = code.trim().toUpperCase();
+    if (!/^[A-Z0-9]{4}$/.test(code)) throw new Error('Vul een code van 4 tekens in');
+    const data = await api(`/api/rooms/${code}/join`, { name: myName(), token: store.get('vier.room.' + code) });
+    startOnline(data.code, data.token);
+  }
+
+  $('createBtn').onclick = async () => {
+    $('lobbyError').textContent = '';
+    try {
+      const data = await api('/api/rooms', { name: myName() });
+      startOnline(data.code, data.token);
+    } catch (e) { $('lobbyError').textContent = e.message; }
+  };
+  $('joinBtn').onclick = async () => {
+    $('lobbyError').textContent = '';
+    try { await join($('codeInput').value); } catch (e) { $('lobbyError').textContent = e.message; }
+  };
+  $('codeInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('joinBtn').click(); });
+
+  $('copyBtn').onclick = async () => {
+    const link = `${location.origin}${location.pathname}?r=${session.code}`;
+    try {
+      if (navigator.share) await navigator.share({ title: 'Vier op een rij', text: 'Speel tegen me!', url: link });
+      else { await navigator.clipboard.writeText(link); $('copyBtn').textContent = 'Gekopieerd!'; }
+    } catch {}
+  };
+
+  // ---------- Local (hot-seat) ----------
+  function localWinLine(b, row, col) {
+    const s = b[row][col];
+    for (const [dr, dc] of [[0, 1], [1, 0], [1, 1], [1, -1]]) {
+      const line = [[row, col]];
+      for (const k of [1, -1]) {
+        let r = row + dr * k, c = col + dc * k;
+        while (r >= 0 && r < ROWS && c >= 0 && c < COLS && b[r][c] === s) { line.push([r, c]); r += dr * k; c += dc * k; }
+      }
+      if (line.length >= 4) return line;
+    }
+    return null;
+  }
+
+  function newLocal(prev) {
+    const starter = prev ? 1 - prev.starter : 0;
+    return {
+      code: '', you: -1, starter,
+      players: [{ name: myName() || 'Rood' }, { name: 'Geel' }],
+      board: Array.from({ length: ROWS }, () => Array(COLS).fill(null)),
+      turn: starter, winner: null, winLine: null,
+      scores: prev ? prev.scores : [0, 0], rematch: [false, false],
+    };
+  }
+
+  $('localBtn').onclick = () => {
+    mode = 'local';
+    prevBoard = null;
+    showGame();
+    render(newLocal());
+  };
+
+  // ---------- Shared ----------
+  async function play(col) {
+    if (!myTurn()) return;
+    if (mode === 'local') {
+      const s = state;
+      let row = -1;
+      for (let r = ROWS - 1; r >= 0; r--) if (s.board[r][col] === null) { row = r; break; }
+      if (row < 0) return;
+      s.board[row][col] = s.turn;
+      const line = localWinLine(s.board, row, col);
+      if (line) { s.winner = s.turn; s.winLine = line; s.scores[s.turn]++; }
+      else if (s.board[0].every((x) => x !== null)) s.winner = 'draw';
+      else s.turn = 1 - s.turn;
+      render(s);
+      return;
+    }
+    $('gameError').textContent = '';
+    boardEl.classList.add('locked');
+    try { await api(`/api/rooms/${session.code}/move`, { token: session.token, column: col }); }
+    catch (e) { $('gameError').textContent = e.message; boardEl.classList.toggle('locked', !myTurn()); }
+  }
+
+  $('rematchBtn').onclick = async () => {
+    if (mode === 'local') { prevBoard = null; render(newLocal(state)); return; }
+    try { await api(`/api/rooms/${session.code}/rematch`, { token: session.token }); }
+    catch (e) { $('gameError').textContent = e.message; }
+  };
+  $('leaveBtn').onclick = showLobby;
+
+  // ---------- Boot ----------
+  $('nameInput').value = store.get('vier.name') || '';
+  const invite = new URLSearchParams(location.search).get('r');
+  if (invite) {
+    $('codeInput').value = invite.toUpperCase();
+    // Rejoin straight away after a refresh, or when we already know the name;
+    // otherwise let a first-time invitee type their name before joining.
+    if (store.get('vier.room.' + invite.toUpperCase()) || $('nameInput').value) {
+      join(invite).catch((e) => { $('lobbyError').textContent = e.message; });
+    } else {
+      $('nameInput').focus();
+    }
+  }
+})();
+</script>
+</body>
+</html>
