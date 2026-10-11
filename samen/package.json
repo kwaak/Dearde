@@ -1,8 +1,8 @@
 {
-  "name": "vier-op-een-rij",
+  "name": "samen",
   "version": "1.0.0",
   "private": true,
-  "description": "Online 2-player Connect Four (Vier op een rij)",
+  "description": "Samen: co-op puzzle game for two phones, inspired by It Takes Two",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

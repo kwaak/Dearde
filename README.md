@@ -80,7 +80,6 @@ lib/game/             GameSession (API client with polling) and the session
                       manager with stored server credentials
 lib/ui/               screens: start, empire overview, starmap, planet,
                       fleets, news
-vier-op-een-rij/      separate 2-player web game (Connect Four), deployed
-                      to the VPS via the Quizly deploy service — see its
-                      README
+samen/                separate co-op web game for two phones, deployed to
+                      the VPS via the Quizly deploy page — see its README
 ```

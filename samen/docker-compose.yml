@@ -1,7 +1,7 @@
 services:
-  vier-op-een-rij:
+  samen:
     build: .
-    container_name: vier-op-een-rij
+    container_name: samen
     restart: unless-stopped
     ports:
       # Public by default so the game works straight away on http://<vps>:8095.

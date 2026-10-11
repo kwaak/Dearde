@@ -1,0 +1,592 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#ffe3d3">
+<title>Samen 💞</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💞</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --text: #3d2b52; --muted: #8b7a9e; --card: rgba(255, 255, 255, .78);
+    --mini: #ff6f91; --mini-dark: #e2456c; --maxi: #ffb84d; --maxi-dark: #e8932a;
+    --floor: #fff7ec; --floor-edge: #f1e2cf; --wall: #8a6cc2; --wall-dark: #6a4ea3;
+    --pa: #ff5fa2; --pb: #3cb4ff; --pc: #9b6bff; --heart: #ff4d6d; --crate: #c98b52;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { min-height: 100%; }
+  body {
+    font-family: 'Fredoka', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    background: linear-gradient(165deg, #ffe3d3 0%, #f8dcff 50%, #d9e9ff 100%) fixed;
+    color: var(--text); display: flex; justify-content: center; padding: 14px 16px 28px;
+    -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none;
+  }
+  .app { width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 14px; }
+  .hidden { display: none !important; }
+  .card { background: var(--card); border-radius: 24px; padding: 18px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 8px 24px rgba(120, 80, 160, .15); }
+  .muted { color: var(--muted); }
+  .center { text-align: center; }
+
+  /* Title with the two characters */
+  .hero { display: flex; flex-direction: column; align-items: center; gap: 6px; padding-top: 6px; }
+  .hero h1 { font-size: 2.6rem; font-weight: 700; letter-spacing: .5px; }
+  .hero h1 span:first-child { color: var(--mini-dark); } .hero h1 span:last-child { color: var(--maxi-dark); }
+  .duo { display: flex; align-items: flex-end; gap: 10px; height: 74px; }
+  .duo .heart { font-size: 1.4rem; margin-bottom: 30px; animation: float 2s ease-in-out infinite; }
+  @keyframes float { 50% { transform: translateY(-6px); } }
+
+  /* Characters (also used on the board) */
+  .char { position: relative; display: grid; place-items: center; }
+  .char .face { position: absolute; inset: 0; }
+  .char .face::before, .char .face::after { content: ''; position: absolute; top: 38%; width: 12%; height: 14%; background: #3d2b52; border-radius: 50%; }
+  .char .face::before { left: 30%; } .char .face::after { right: 30%; }
+  .char .smile { position: absolute; left: 38%; right: 38%; top: 58%; height: 12%; border-bottom: 3px solid #3d2b52; border-radius: 0 0 50% 50%; }
+  .char .cheek { position: absolute; top: 56%; width: 12%; height: 8%; background: rgba(255, 90, 120, .35); border-radius: 50%; }
+  .char .cheek.l { left: 16%; } .char .cheek.r { right: 16%; }
+  .char.mini { border-radius: 50%; background: radial-gradient(circle at 35% 30%, #ffb3c4, var(--mini)); box-shadow: 0 3px 0 var(--mini-dark); }
+  .char.maxi { border-radius: 26%; background: radial-gradient(circle at 35% 25%, #ffe2a8, var(--maxi)); box-shadow: 0 3px 0 var(--maxi-dark); }
+  .duo .char.mini { width: 44px; height: 44px; animation: hop 1.6s ease-in-out infinite; }
+  .duo .char.maxi { width: 66px; height: 70px; animation: hop 1.6s .3s ease-in-out infinite; }
+  @keyframes hop { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-8px); } }
+
+  /* Inputs and buttons */
+  input {
+    width: 100%; padding: 14px 16px; border-radius: 16px; border: 2px solid var(--floor-edge);
+    background: #fff; color: var(--text); font: inherit; font-size: 1.1rem; user-select: text;
+  }
+  input:focus { outline: none; border-color: var(--mini); }
+  #codeInput { text-transform: uppercase; letter-spacing: 6px; font-weight: 700; text-align: center; font-size: 1.4rem; }
+  button { font: inherit; border: 0; cursor: pointer; touch-action: manipulation; }
+  .btn {
+    width: 100%; padding: 16px; border-radius: 18px; font-size: 1.2rem; font-weight: 700; color: #fff;
+    background: linear-gradient(135deg, var(--mini), #ff9a6b); box-shadow: 0 5px 0 var(--mini-dark);
+    transition: transform .08s, box-shadow .08s;
+  }
+  .btn:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--mini-dark); }
+  .btn.alt { background: linear-gradient(135deg, var(--maxi), #ffd166); box-shadow: 0 5px 0 var(--maxi-dark); color: #4a3200; }
+  .btn.alt:active { box-shadow: 0 1px 0 var(--maxi-dark); }
+  .btn.ghost { background: #fff; color: var(--text); box-shadow: 0 4px 0 var(--floor-edge); }
+  .link { background: none; color: var(--muted); font-size: 1rem; text-decoration: underline; padding: 6px; }
+  .msg { color: #d6336c; text-align: center; min-height: 1.2em; }
+
+  /* Game header */
+  .topbar { display: flex; align-items: center; gap: 10px; }
+  .topbar .lvl { flex: 1; }
+  .topbar .lvl small { color: var(--muted); display: block; font-size: .85rem; }
+  .topbar .lvl b { font-size: 1.25rem; }
+  .iconbtn { width: 46px; height: 46px; border-radius: 50%; background: #fff; font-size: 1.3rem; box-shadow: 0 3px 0 var(--floor-edge); }
+  .stars { display: flex; gap: 4px; justify-content: center; }
+  .stars span { width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,.7); }
+  .stars span.done { background: var(--heart); } .stars span.now { background: var(--maxi); }
+
+  .tip { display: flex; gap: 12px; align-items: center; background: #fff; border-radius: 18px; padding: 12px 14px; box-shadow: 0 4px 14px rgba(120, 80, 160, .12); }
+  .tip .char { flex-shrink: 0; }
+  .tip .char.mini { width: 34px; height: 34px; } .tip .char.maxi { width: 38px; height: 42px; }
+  .tip p { font-size: 1.05rem; line-height: 1.3; }
+  .tip p b { display: block; font-size: .85rem; color: var(--muted); font-weight: 600; }
+  #tips.compact { flex-direction: row !important; }
+  #tips.compact .tip { flex: 1; padding: 8px 10px; gap: 8px; align-items: flex-start; }
+  #tips.compact .tip p { font-size: .85rem; } #tips.compact .tip p b { display: none; }
+  #tips.compact .char.mini { width: 24px; height: 24px; } #tips.compact .char.maxi { width: 26px; height: 30px; }
+
+  /* Board */
+  .board-wrap { position: relative; }
+  .board { position: relative; display: grid; gap: 0; background: var(--wall-dark); border-radius: 18px; padding: 6px; touch-action: none; box-shadow: 0 10px 24px rgba(90, 60, 140, .3); }
+  .tile { aspect-ratio: 1; position: relative; }
+  .tile.floor, .tile.exit, .tile.plate, .tile.door.open { background: var(--floor); box-shadow: inset 0 0 0 1px var(--floor-edge); }
+  .tile.wall { background: linear-gradient(160deg, var(--wall), var(--wall-dark)); border-radius: 6px; box-shadow: inset 0 -3px 0 rgba(0,0,0,.18), inset 0 2px 0 rgba(255,255,255,.2); transform: scale(.94); }
+  .tile.tunnel { background: linear-gradient(160deg, var(--wall), var(--wall-dark)); border-radius: 6px; transform: scale(.94); }
+  .tile.tunnel::after { content: ''; position: absolute; left: 20%; right: 20%; top: 28%; bottom: 0; background: #3b2a55; border-radius: 50% 50% 0 0; }
+  .tile.plate::after { content: ''; position: absolute; inset: 18%; border-radius: 50%; background: var(--pc-color); box-shadow: 0 3px 0 rgba(0,0,0,.2), inset 0 2px 0 rgba(255,255,255,.5); }
+  .tile.plate.pressed::after { transform: translateY(2px); box-shadow: inset 0 2px 4px rgba(0,0,0,.3); }
+  .tile.door { background: var(--pc-color); border-radius: 4px; box-shadow: inset 0 0 0 3px rgba(0,0,0,.15); background-image: repeating-linear-gradient(90deg, rgba(255,255,255,.25) 0 4px, transparent 4px 10px); }
+  .tile.door::after { content: '🔒'; position: absolute; inset: 0; display: grid; place-items: center; font-size: min(4vw, 18px); }
+  .tile.door.open { background-image: none; }
+  .tile.door.open::after { content: ''; inset: 8%; border: 3px dashed var(--pc-color); border-radius: 4px; }
+  .tile.exit::after { content: '❤'; position: absolute; inset: 0; display: grid; place-items: center; color: var(--heart); font-size: min(6vw, 30px); animation: beat 1.2s ease-in-out infinite; }
+  @keyframes beat { 0%, 100% { transform: scale(.85); } 20% { transform: scale(1.05); } }
+
+  .sprite { position: absolute; transition: left .15s ease-out, top .15s ease-out; pointer-events: none; display: grid; place-items: center; z-index: 2; }
+  .sprite .char.mini { width: 62%; height: 62%; }
+  .sprite .char.maxi { width: 86%; height: 90%; }
+  .sprite.me::before { content: '▼'; position: absolute; top: -48%; font-size: 12px; color: var(--text); animation: float 1s ease-in-out infinite; }
+  .sprite.crate .box { width: 84%; height: 84%; border-radius: 6px; background: var(--crate); box-shadow: inset 0 0 0 3px rgba(0,0,0,.18), 0 3px 0 #8f5d30; background-image: linear-gradient(45deg, transparent 44%, rgba(0,0,0,.2) 45% 55%, transparent 56%), linear-gradient(-45deg, transparent 44%, rgba(0,0,0,.2) 45% 55%, transparent 56%); }
+  .sprite.bump .char { animation: bump .25s; }
+  @keyframes bump { 25% { transform: translateX(-8%); } 75% { transform: translateX(8%); } }
+  .sprite.step .char { animation: squash .15s; }
+  @keyframes squash { 50% { transform: scale(1.1, .9); } }
+  .ping { position: absolute; pointer-events: none; border-radius: 50%; border: 4px solid var(--ping); animation: ping .9s ease-out 3; z-index: 3; }
+  @keyframes ping { from { transform: scale(.3); opacity: 1; } to { transform: scale(1.7); opacity: 0; } }
+
+  .overlay { position: absolute; inset: 0; background: rgba(255, 247, 236, .92); border-radius: 18px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; text-align: center; padding: 20px; z-index: 5; animation: pop .35s; }
+  .overlay .big { font-size: 1.8rem; font-weight: 700; }
+  @keyframes pop { from { transform: scale(.8); opacity: 0; } }
+
+  /* D-pad */
+  .controls { display: flex; gap: 14px; justify-content: center; }
+  .pad { display: grid; grid-template-columns: repeat(3, 66px); grid-template-rows: repeat(3, 66px); gap: 6px; }
+  .pad button {
+    border-radius: 50%; background: #fff; font-size: 1.6rem; color: var(--pad-color);
+    box-shadow: 0 5px 0 var(--pad-dark); transition: transform .06s, box-shadow .06s;
+  }
+  .pad button:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--pad-dark); background: var(--pad-color); color: #fff; }
+  .pad .up { grid-column: 2; grid-row: 1; } .pad .left { grid-column: 1; grid-row: 2; }
+  .pad .right { grid-column: 3; grid-row: 2; } .pad .down { grid-column: 2; grid-row: 3; }
+  .pad .label { grid-column: 2; grid-row: 2; display: grid; place-items: center; }
+  .pad .label .char.mini { width: 30px; height: 30px; } .pad .label .char.maxi { width: 34px; height: 38px; }
+  .controls.local .pad { grid-template-columns: repeat(3, 48px); grid-template-rows: repeat(3, 48px); gap: 4px; }
+  .controls.local .pad button { font-size: 1.2rem; }
+
+  .qr { background: #fff; border-radius: 18px; padding: 12px; width: 210px; height: 210px; margin: 0 auto; box-shadow: 0 4px 14px rgba(120, 80, 160, .15); }
+  .qr svg { width: 100%; height: 100%; display: block; }
+  .code { font-size: 2rem; font-weight: 700; letter-spacing: 8px; text-align: center; }
+  .waitdots::after { content: '…'; animation: dots 1.2s steps(3) infinite; display: inline-block; overflow: hidden; vertical-align: bottom; width: 1ch; }
+  @keyframes dots { from { width: 0; } to { width: 1.2ch; } }
+
+  .confetti { position: fixed; top: -12px; width: 10px; height: 14px; border-radius: 3px; z-index: 50; pointer-events: none; animation: fall linear forwards; }
+  @keyframes fall { to { transform: translateY(105vh) rotate(720deg); } }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="hero" id="hero">
+    <div class="duo">
+      <div class="char mini"><div class="face"></div><div class="smile"></div><div class="cheek l"></div><div class="cheek r"></div></div>
+      <div class="heart">💞</div>
+      <div class="char maxi"><div class="face"></div><div class="smile"></div><div class="cheek l"></div><div class="cheek r"></div></div>
+    </div>
+    <h1><span>Sa</span><span>men</span></h1>
+  </div>
+
+  <!-- Start screen -->
+  <section id="lobby" class="card">
+    <p class="center" style="font-size:1.1rem">Twee vriendjes, één doel:<br><b>samen bij het hartje komen</b> ❤</p>
+    <input id="nameInput" maxlength="20" placeholder="Hoe heet je?" autocomplete="nickname">
+    <button class="btn" id="createBtn">💞 Start een spel</button>
+    <button class="btn ghost" id="showCodeBtn">Ik heb een code</button>
+    <div id="codeBox" class="hidden" style="display:flex;flex-direction:column;gap:10px">
+      <input id="codeInput" maxlength="4" placeholder="CODE" autocomplete="off">
+      <button class="btn alt" id="joinBtn">Meedoen</button>
+    </div>
+    <button class="link" id="localBtn">Liever samen op één telefoon?</button>
+    <div class="msg" id="lobbyMsg"></div>
+  </section>
+
+  <!-- Invite screen (opened via QR / link) -->
+  <section id="invite" class="card hidden center">
+    <p style="font-size:1.3rem"><b id="inviteHost">Iemand</b> wil samen met je spelen! 💞</p>
+    <p class="muted">Jij bent <b style="color:var(--maxi-dark)">Maxi</b>: groot en sterk.</p>
+    <input id="inviteName" maxlength="20" placeholder="Hoe heet je?" autocomplete="nickname">
+    <button class="btn alt" id="inviteBtn">Speel mee!</button>
+    <div class="msg" id="inviteMsg"></div>
+  </section>
+
+  <!-- Waiting for the partner -->
+  <section id="share" class="card hidden center">
+    <p style="font-size:1.25rem"><b>Laat je maatje dit scannen</b></p>
+    <p class="muted">Gewoon met de camera van de telefoon</p>
+    <div class="qr" id="shareQr"></div>
+    <p class="muted">of typ de code</p>
+    <div class="code" id="shareCode"></div>
+    <button class="btn ghost" id="copyBtn">Stuur de link</button>
+    <p class="muted">Wachten op je maatje<span class="waitdots"></span></p>
+    <button class="link" id="cancelBtn">Stoppen</button>
+  </section>
+
+  <!-- Game -->
+  <section id="game" class="hidden" style="display:flex;flex-direction:column;gap:12px">
+    <div class="topbar">
+      <button class="iconbtn" id="leaveBtn" aria-label="Stoppen">✕</button>
+      <div class="lvl center"><small id="levelNum"></small><b id="levelTitle"></b></div>
+      <button class="iconbtn" id="restartBtn" aria-label="Opnieuw">↺</button>
+    </div>
+    <div class="stars" id="stars"></div>
+    <div id="tips" style="display:flex;flex-direction:column;gap:8px"></div>
+    <div class="board-wrap">
+      <div class="board" id="board"></div>
+      <div class="overlay hidden" id="overlay"></div>
+    </div>
+    <div class="controls" id="controls"></div>
+    <p class="muted center" id="footHint" style="font-size:.9rem"></p>
+    <div class="msg" id="gameMsg"></div>
+  </section>
+</div>
+
+<script src="vendor/qrcode.js"></script>
+<script src="game.js"></script>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+  };
+  const NAMES = ['Mini', 'Maxi'];
+  const PLATE = { a: 'var(--pa)', b: 'var(--pb)', c: 'var(--pc)' };
+  const ARROWS = { up: '▲', down: '▼', left: '◀', right: '▶' };
+  const charHtml = (seat) => `<div class="char ${seat ? 'maxi' : 'mini'}"><div class="face"></div><div class="smile"></div><div class="cheek l"></div><div class="cheek r"></div></div>`;
+  const vibrate = (ms) => { try { navigator.vibrate && navigator.vibrate(ms); } catch {} };
+
+  let mode = null;      // 'online' | 'local'
+  let state = null;
+  let session = null;   // { code, token }
+  let events = null;
+  let local = null, localTotal = 0, localFinished = false;
+  let renderedLevel = -1;
+  let sprites = [];
+  let lastSolvedKey = null;
+
+  function show(screen) {
+    for (const id of ['lobby', 'invite', 'share', 'game']) $(id).classList.toggle('hidden', id !== screen);
+    $('hero').classList.toggle('hidden', screen === 'game');
+  }
+
+  // ---------- Board ----------
+  const board = $('board');
+
+  function buildBoard(g) {
+    board.innerHTML = '';
+    board.style.gridTemplateColumns = `repeat(${g.tiles[0].length}, 1fr)`;
+    g.tiles.forEach((row, r) => row.forEach((t, c) => {
+      const el = document.createElement('div');
+      el.className = 'tile';
+      el.dataset.r = r; el.dataset.c = c;
+      board.appendChild(el);
+    }));
+    sprites = [];
+    const add = (html, cls) => {
+      const s = document.createElement('div');
+      s.className = 'sprite ' + cls;
+      s.innerHTML = html;
+      board.appendChild(s);
+      return s;
+    };
+    g.boxes.forEach(() => sprites.push(add('<div class="box"></div>', 'crate')));
+    sprites.push(add(charHtml(0), 'p0'), add(charHtml(1), 'p1'));
+    renderedLevel = g.level;
+  }
+
+  function place(sprite, [r, c], g) {
+    const tile = board.children[r * g.tiles[0].length + c];
+    const moved = sprite.dataset.pos && sprite.dataset.pos !== `${r},${c}`;
+    sprite.dataset.pos = `${r},${c}`;
+    sprite.style.left = tile.offsetLeft + 'px';
+    sprite.style.top = tile.offsetTop + 'px';
+    sprite.style.width = tile.offsetWidth + 'px';
+    sprite.style.height = tile.offsetHeight + 'px';
+    if (moved) { sprite.classList.remove('step'); void sprite.offsetWidth; sprite.classList.add('step'); }
+  }
+
+  function renderTiles(g) {
+    const occupied = new Set([...g.boxes, ...g.players].map(([r, c]) => `${r},${c}`));
+    g.tiles.forEach((row, r) => row.forEach((t, c) => {
+      const el = board.children[r * row.length + c];
+      let cls = 'tile';
+      if (t === '#') cls += ' wall';
+      else if (t === 'o') cls += ' tunnel';
+      else if (t === 'E') cls += ' exit';
+      else if (/^[a-c]$/.test(t)) {
+        cls += ' plate' + (occupied.has(`${r},${c}`) ? ' pressed' : '');
+        el.style.setProperty('--pc-color', PLATE[t]);
+      } else if (/^[A-C]$/.test(t) || t.endsWith('_open')) {
+        cls += ' door' + (t.endsWith('_open') ? ' open' : '');
+        el.style.setProperty('--pc-color', PLATE[t[0].toLowerCase()]);
+      } else cls += ' floor';
+      el.className = cls;
+    }));
+  }
+
+  function render(s) {
+    state = s;
+    const waiting = mode === 'online' && !s.players[1];
+    if (waiting) {
+      show('share');
+      $('shareCode').textContent = s.code;
+      if ($('shareQr').dataset.code !== s.code) {
+        const qr = qrcode(0, 'M');
+        qr.addData(inviteLink());
+        qr.make();
+        $('shareQr').innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
+        $('shareQr').dataset.code = s.code;
+      }
+      return;
+    }
+    if ($('game').classList.contains('hidden')) {
+      show('game');
+      buildControls();
+      renderedLevel = -1;
+      if (mode === 'online') vibrate([60, 60, 60]);
+    }
+
+    const g = s.game;
+    if (g.level !== renderedLevel || !board.firstChild) buildBoard(g);
+    renderTiles(g);
+    g.boxes.forEach((b, i) => place(sprites[i], b, g));
+    [0, 1].forEach((seat) => {
+      const sp = sprites[g.boxes.length + seat];
+      place(sp, g.players[seat], g);
+      sp.classList.toggle('me', mode === 'online' && s.you === seat);
+    });
+
+    $('levelNum').textContent = `Level ${g.level + 1} van ${g.levels}`;
+    $('levelTitle').textContent = g.title;
+    $('stars').innerHTML = Array.from({ length: g.levels }, (_, i) =>
+      `<span class="${i < g.level || s.finished ? 'done' : i === g.level ? 'now' : ''}"></span>`).join('');
+
+    const seats = mode === 'local' ? [0, 1] : [s.you];
+    $('tips').classList.toggle('compact', mode === 'local');
+    $('footHint').classList.toggle('hidden', mode === 'local');
+    $('tips').innerHTML = seats.map((seat) => `<div class="tip">${charHtml(seat)}<p><b>${mode === 'local' ? NAMES[seat] : 'Jouw opdracht als ' + NAMES[seat]}</b>${g.tips[seat]}</p></div>`).join('');
+    $('footHint').textContent = mode === 'online'
+      ? 'Tip: tik op een vakje om het je maatje aan te wijzen.'
+      : 'Samen bij de hartjes staan = level gehaald!';
+
+    const ov = $('overlay');
+    if (s.finished) {
+      ov.innerHTML = `<div style="font-size:3rem">🏆</div><div class="big">Jullie zijn een top-team!</div>
+        <div class="muted">Alle ${g.levels} levels samen gehaald in ${s.totalMoves} stapjes.</div>
+        <button class="btn" id="againBtn">Nog een keer spelen</button>`;
+      ov.classList.remove('hidden');
+      $('againBtn').onclick = () => act('again');
+      celebrate('finished');
+    } else if (g.solved) {
+      const last = g.level + 1 >= g.levels;
+      ov.innerHTML = `<div style="font-size:3rem">💞</div><div class="big">Gelukt, samen!</div>
+        <button class="btn" id="nextBtn">${last ? 'Bekijk de prijs 🏆' : 'Volgende level ➜'}</button>`;
+      ov.classList.remove('hidden');
+      $('nextBtn').onclick = () => act('next');
+      celebrate('level' + g.level);
+    } else {
+      ov.classList.add('hidden');
+    }
+
+    if (s.ping && s.ping.at !== lastPingAt) {
+      lastPingAt = s.ping.at;
+      showPing(s.ping);
+    }
+  }
+
+  function celebrate(key) {
+    if (lastSolvedKey === key) return;
+    lastSolvedKey = key;
+    vibrate([80, 40, 120]);
+    const colors = ['#ff6f91', '#ffb84d', '#3cb4ff', '#9b6bff', '#5ee38a'];
+    for (let i = 0; i < 60; i++) {
+      const c = document.createElement('div');
+      c.className = 'confetti';
+      c.style.left = Math.random() * 100 + 'vw';
+      c.style.background = colors[i % colors.length];
+      c.style.animationDuration = 1.6 + Math.random() * 1.6 + 's';
+      c.style.animationDelay = Math.random() * .4 + 's';
+      document.body.appendChild(c);
+      setTimeout(() => c.remove(), 4000);
+    }
+  }
+
+  window.addEventListener('resize', () => { if (state && state.game && !$('game').classList.contains('hidden')) render(state); });
+
+  let lastPingAt = null;
+  function showPing(p) {
+    if (Date.now() - p.at > 3000) return;
+    const tile = board.querySelector(`.tile[data-r="${p.r}"][data-c="${p.c}"]`);
+    if (!tile) return;
+    const ring = document.createElement('div');
+    ring.className = 'ping';
+    ring.style.setProperty('--ping', p.seat === 0 ? 'var(--mini)' : 'var(--maxi)');
+    ring.style.left = tile.offsetLeft + 'px'; ring.style.top = tile.offsetTop + 'px';
+    ring.style.width = tile.offsetWidth + 'px'; ring.style.height = tile.offsetHeight + 'px';
+    board.appendChild(ring);
+    if (p.seat !== state.you) vibrate(30);
+    setTimeout(() => ring.remove(), 2800);
+  }
+
+  function bump(seat) {
+    const sp = sprites[state.game.boxes.length + seat];
+    if (!sp) return;
+    sp.classList.remove('bump'); void sp.offsetWidth; sp.classList.add('bump');
+    vibrate(20);
+  }
+
+  // ---------- Controls ----------
+  function buildControls() {
+    const ctl = $('controls');
+    ctl.innerHTML = '';
+    ctl.classList.toggle('local', mode === 'local');
+    const seats = mode === 'local' ? [0, 1] : [state.you];
+    for (const seat of seats) {
+      const pad = document.createElement('div');
+      pad.className = 'pad';
+      pad.style.setProperty('--pad-color', seat ? 'var(--maxi)' : 'var(--mini)');
+      pad.style.setProperty('--pad-dark', seat ? 'var(--maxi-dark)' : 'var(--mini-dark)');
+      pad.innerHTML = `<span class="label">${charHtml(seat)}</span>` +
+        Object.keys(ARROWS).map((d) => `<button class="${d}" data-dir="${d}" aria-label="${d}">${ARROWS[d]}</button>`).join('');
+      pad.addEventListener('pointerdown', (e) => {
+        const b = e.target.closest('button');
+        if (!b) return;
+        e.preventDefault();
+        step(seat, b.dataset.dir);
+      });
+      ctl.appendChild(pad);
+    }
+  }
+
+  async function step(seat, dir) {
+    if (!state || !state.game || state.finished || state.game.solved) return;
+    if (mode === 'local') {
+      if (Samen.move(local, seat, dir)) localTotal += 1; else bump(seat);
+      renderLocal();
+      return;
+    }
+    try {
+      const res = await api(`/api/rooms/${session.code}/move`, { token: session.token, dir });
+      if (!res.ok) bump(seat);
+    } catch (e) { $('gameMsg').textContent = e.message; }
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (!state || $('game').classList.contains('hidden')) return;
+    const keys = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' };
+    const wasd = { w: 'up', s: 'down', a: 'left', d: 'right' };
+    if (mode === 'local') {
+      if (wasd[e.key]) step(0, wasd[e.key]);
+      else if (keys[e.key]) step(1, keys[e.key]);
+      else return;
+    } else if (keys[e.key] || wasd[e.key]) step(state.you, keys[e.key] || wasd[e.key]);
+    else return;
+    e.preventDefault();
+  });
+
+  // Swipe on the board moves your own character; a tap points out a tile.
+  let touchStart = null;
+  board.addEventListener('pointerdown', (e) => { touchStart = { x: e.clientX, y: e.clientY, t: e.target }; });
+  board.addEventListener('pointerup', (e) => {
+    if (!touchStart || !state) return;
+    const dx = e.clientX - touchStart.x, dy = e.clientY - touchStart.y;
+    const tile = touchStart.t.closest && touchStart.t.closest('.tile');
+    touchStart = null;
+    if (mode !== 'online') return;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) > 24) {
+      step(state.you, Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'));
+    } else if (tile) {
+      api(`/api/rooms/${session.code}/ping`, { token: session.token, r: +tile.dataset.r, c: +tile.dataset.c }).catch(() => {});
+    }
+  });
+
+  // ---------- Online ----------
+  async function api(path, body, method = 'POST') {
+    const res = await fetch(path, method === 'GET' ? {} : {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body || {}),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Er ging iets mis');
+    return data;
+  }
+
+  function act(action) {
+    if (mode === 'local') {
+      if (action === 'next') {
+        if (local.level + 1 < Samen.LEVELS.length) local = Samen.loadLevel(local.level + 1);
+        else localFinished = true;
+      } else if (action === 'again') { local = Samen.loadLevel(0); localFinished = false; localTotal = 0; lastSolvedKey = null; }
+      else if (action === 'restart') local = Samen.loadLevel(local.level);
+      renderLocal();
+      return;
+    }
+    if (action === 'again') lastSolvedKey = null;
+    api(`/api/rooms/${session.code}/${action}`, { token: session.token })
+      .catch((e) => { $('gameMsg').textContent = e.message; });
+  }
+
+  const inviteLink = () => `${location.origin}${location.pathname}?r=${session.code}`;
+
+  function saveName(n) { n = n.trim(); if (n) store.set('samen.name', n); return n; }
+
+  function startOnline(code, token, seat) {
+    session = { code, token };
+    store.set('samen.room.' + code, token);
+    mode = 'online';
+    lastSolvedKey = null;
+    history.replaceState(null, '', '?r=' + code);
+    state = { you: seat };
+    if (events) events.close();
+    events = new EventSource(`/api/rooms/${code}/events?token=${encodeURIComponent(token)}`);
+    events.onmessage = (e) => render(JSON.parse(e.data));
+    events.onerror = () => {
+      if (events.readyState === EventSource.CLOSED) $('gameMsg').textContent = 'Verbinding verbroken. Ververs de pagina.';
+    };
+  }
+
+  async function join(code, name, msgEl) {
+    code = code.trim().toUpperCase();
+    try {
+      if (!/^[A-Z0-9]{4}$/.test(code)) throw new Error('Een code heeft 4 tekens');
+      const data = await api(`/api/rooms/${code}/join`, { name, token: store.get('samen.room.' + code) });
+      startOnline(data.code, data.token, data.seat);
+    } catch (e) { msgEl.textContent = e.message; }
+  }
+
+  $('createBtn').onclick = async () => {
+    try {
+      const data = await api('/api/rooms', { name: saveName($('nameInput').value) });
+      startOnline(data.code, data.token, data.seat);
+    } catch (e) { $('lobbyMsg').textContent = e.message; }
+  };
+  $('showCodeBtn').onclick = () => { $('codeBox').classList.remove('hidden'); $('showCodeBtn').classList.add('hidden'); $('codeInput').focus(); };
+  $('joinBtn').onclick = () => join($('codeInput').value, saveName($('nameInput').value), $('lobbyMsg'));
+  $('codeInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('joinBtn').click(); });
+  $('copyBtn').onclick = async () => {
+    const link = inviteLink();
+    try {
+      if (navigator.share) await navigator.share({ title: 'Samen 💞', text: 'Speel samen met me!', url: link });
+      else { await navigator.clipboard.writeText(link); $('copyBtn').textContent = 'Gekopieerd! ✓'; }
+    } catch {}
+  };
+
+  // ---------- One device ----------
+  function renderLocal() {
+    render({
+      code: '', you: -1, players: [{ name: '' }, { name: '' }],
+      game: Samen.view(local), finished: localFinished, totalMoves: localTotal, ping: null,
+    });
+  }
+  $('localBtn').onclick = () => {
+    mode = 'local';
+    local = Samen.loadLevel(0); localFinished = false; localTotal = 0; lastSolvedKey = null;
+    state = { you: -1 };
+    renderLocal();
+  };
+
+  function leave() {
+    if (events) { events.close(); events = null; }
+    mode = null; state = null; session = null;
+    history.replaceState(null, '', location.pathname);
+    show('lobby');
+  }
+  $('restartBtn').onclick = () => act('restart');
+  $('leaveBtn').onclick = () => { if (confirm('Wil je stoppen met spelen?')) leave(); };
+  $('cancelBtn').onclick = leave;
+
+  // ---------- Boot ----------
+  const savedName = store.get('samen.name') || '';
+  $('nameInput').value = savedName;
+  $('inviteName').value = savedName;
+  const invite = (new URLSearchParams(location.search).get('r') || '').toUpperCase();
+  if (invite && store.get('samen.room.' + invite)) {
+    join(invite, savedName, $('lobbyMsg')); // back after a refresh
+  } else if (invite) {
+    show('invite');
+    api(`/api/rooms/${invite}`, null, 'GET').then((info) => {
+      if (info.host) $('inviteHost').textContent = info.host;
+      if (info.full) { $('inviteMsg').textContent = 'Dit spel is al vol.'; $('inviteBtn').disabled = true; }
+    }).catch((e) => { $('inviteMsg').textContent = e.message; });
+    $('inviteBtn').onclick = () => join(invite, saveName($('inviteName').value), $('inviteMsg'));
+  }
+})();
+</script>
+</body>
+</html>

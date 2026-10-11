@@ -4,7 +4,7 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const { newBoard, drop, winningLine, isFull } = require('./game');
+const { LEVELS, loadLevel, move, view } = require('./game');
 
 const PORT = Number(process.env.PORT) || 8080;
 const PUBLIC_DIR = path.join(__dirname, 'public');
@@ -31,14 +31,10 @@ function createRoom() {
   const room = {
     code: makeCode(),
     players: [null, null], // { name, token }
-    board: newBoard(),
-    turn: 0,
-    starter: 0,
-    winner: null, // 0 | 1 | 'draw' | null
-    winLine: null,
-    lastMove: null,
-    scores: [0, 0],
-    rematch: [false, false],
+    game: loadLevel(0),
+    finished: false, // all levels done
+    totalMoves: 0,
+    ping: null, // { seat, r, c, at }
     clients: new Set(), // { res, seat }
     touched: Date.now(),
   };
@@ -58,13 +54,10 @@ function publicState(room, seat) {
     code: room.code,
     you: seat,
     players: room.players.map((p, i) => (p ? { name: p.name, online: online[i] } : null)),
-    board: room.board,
-    turn: room.turn,
-    winner: room.winner,
-    winLine: room.winLine,
-    lastMove: room.lastMove,
-    scores: room.scores,
-    rematch: room.rematch,
+    game: view(room.game),
+    finished: room.finished,
+    totalMoves: room.totalMoves,
+    ping: room.ping,
   };
 }
 
@@ -132,13 +125,18 @@ async function handleApi(req, res, url) {
     const body = await readJson(req);
     const room = createRoom();
     const token = crypto.randomUUID();
-    room.players[0] = { name: cleanName(body.name, 'Speler 1'), token };
+    room.players[0] = { name: cleanName(body.name, 'Mini'), token };
     return send(res, 201, { code: room.code, token, seat: 0 });
   }
 
-  if (parts[1] !== 'rooms' || parts.length < 4) return send(res, 404, { error: 'not found' });
+  if (parts[1] !== 'rooms' || parts.length < 3) return send(res, 404, { error: 'not found' });
   const room = rooms.get(String(parts[2]).toUpperCase());
-  if (!room) return send(res, 404, { error: 'Kamer niet gevonden' });
+  if (!room) return send(res, 404, { error: 'Dit spel bestaat niet (meer)' });
+
+  // Lets an invitee see who invited them before joining.
+  if (req.method === 'GET' && parts.length === 3) {
+    return send(res, 200, { host: room.players[0] && room.players[0].name, full: !!room.players[1] });
+  }
   const action = parts[3];
 
   if (req.method === 'GET' && action === 'events') {
@@ -170,7 +168,7 @@ async function handleApi(req, res, url) {
     if (existing >= 0) return send(res, 200, { code: room.code, token: body.token, seat: existing });
     if (room.players[1]) return send(res, 409, { error: 'Deze kamer is al vol' });
     const token = crypto.randomUUID();
-    room.players[1] = { name: cleanName(body.name, 'Speler 2'), token };
+    room.players[1] = { name: cleanName(body.name, 'Maxi'), token };
     broadcast(room);
     return send(res, 200, { code: room.code, token, seat: 1 });
   }
@@ -179,39 +177,43 @@ async function handleApi(req, res, url) {
   if (seat < 0) return send(res, 403, { error: 'Je zit niet in deze kamer' });
 
   if (action === 'move') {
-    if (!room.players[1]) return send(res, 409, { error: 'Wacht op een tegenstander' });
-    if (room.winner !== null) return send(res, 409, { error: 'Het spel is voorbij' });
-    if (room.turn !== seat) return send(res, 409, { error: 'Je bent niet aan de beurt' });
-    const col = Number(body.column);
-    const row = drop(room.board, col, seat);
-    if (row < 0) return send(res, 400, { error: 'Die kolom is vol' });
-    room.lastMove = [row, col];
-    const line = winningLine(room.board, row, col);
-    if (line) {
-      room.winner = seat;
-      room.winLine = line;
-      room.scores[seat] += 1;
-    } else if (isFull(room.board)) {
-      room.winner = 'draw';
+    if (!room.players[1]) return send(res, 409, { error: 'Wacht op je maatje' });
+    if (!move(room.game, seat, String(body.dir))) return send(res, 200, { ok: false });
+    room.totalMoves += 1;
+    broadcast(room);
+    return send(res, 200, { ok: true });
+  }
+
+  if (action === 'restart') {
+    room.game = loadLevel(room.game.level);
+    broadcast(room);
+    return send(res, 200, { ok: true });
+  }
+
+  if (action === 'next') {
+    if (!room.game.solved) return send(res, 409, { error: 'Dit level is nog niet klaar' });
+    if (room.game.level + 1 < LEVELS.length) {
+      room.game = loadLevel(room.game.level + 1);
     } else {
-      room.turn = 1 - seat;
+      room.finished = true;
     }
     broadcast(room);
     return send(res, 200, { ok: true });
   }
 
-  if (action === 'rematch') {
-    if (room.winner === null) return send(res, 409, { error: 'Het spel loopt nog' });
-    room.rematch[seat] = true;
-    if (room.rematch[0] && room.rematch[1]) {
-      room.board = newBoard();
-      room.starter = 1 - room.starter;
-      room.turn = room.starter;
-      room.winner = null;
-      room.winLine = null;
-      room.lastMove = null;
-      room.rematch = [false, false];
-    }
+  if (action === 'again') {
+    room.game = loadLevel(0);
+    room.finished = false;
+    room.totalMoves = 0;
+    broadcast(room);
+    return send(res, 200, { ok: true });
+  }
+
+  if (action === 'ping') {
+    const r = Number(body.r);
+    const c = Number(body.c);
+    if (!Number.isInteger(r) || !Number.isInteger(c)) return send(res, 400, { error: 'bad ping' });
+    room.ping = { seat, r, c, at: Date.now() };
     broadcast(room);
     return send(res, 200, { ok: true });
   }
@@ -222,6 +224,14 @@ async function handleApi(req, res, url) {
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, 'http://localhost');
   if (url.pathname === '/health') return send(res, 200, { status: 'ok', rooms: rooms.size });
+  if (url.pathname === '/game.js') {
+    // The browser uses the same rules module for the one-device mode.
+    return fs.readFile(path.join(__dirname, 'game.js'), (err, data) => {
+      if (err) return send(res, 500, { error: 'missing game.js' });
+      res.writeHead(200, { 'Content-Type': MIME['.js'] });
+      res.end(data);
+    });
+  }
   if (url.pathname.startsWith('/api/')) {
     return handleApi(req, res, url).catch((err) => {
       console.error(err);
@@ -240,7 +250,7 @@ setInterval(() => {
 }, 10 * 60 * 1000).unref();
 
 if (require.main === module) {
-  server.listen(PORT, () => console.log(`Vier op een rij listening on :${PORT}`));
+  server.listen(PORT, () => console.log(`Samen listening on :${PORT}`));
 }
 
 module.exports = { server };
