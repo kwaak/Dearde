@@ -36,6 +36,19 @@ jobs:
       - run: dart analyze
       - run: dart test
 
+  vier-op-een-rij:
+    name: vier-op-een-rij tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: vier-op-een-rij
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm test
+
   apk:
     name: Build Android APK
     runs-on: ubuntu-latest

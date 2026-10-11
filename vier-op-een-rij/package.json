@@ -1,0 +1,14 @@
+{
+  "name": "vier-op-een-rij",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Online 2-player Connect Four (Vier op een rij)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
