@@ -178,6 +178,60 @@
   .continue { background: linear-gradient(135deg, #fff, #fff6fa); border: 2px solid var(--mini); }
   .seats { display: flex; gap: 10px; } .seats > * { flex: 1; }
 
+  /* 2D fallback for the mushroom-kingdom tiles */
+  .tile.pipe { background: var(--floor); }
+  .tile.pipe::after { content: ''; position: absolute; inset: 12%; border-radius: 50%; background: radial-gradient(circle, #0d2a12 45%, var(--pipe) 47%); box-shadow: 0 3px 0 rgba(0,0,0,.25); }
+  .tile.brick { background: #d9772f; background-image: linear-gradient(#5a2d12 2px, transparent 2px), linear-gradient(90deg, #5a2d12 2px, transparent 2px); background-size: 50% 50%; border-radius: 3px; }
+  .tile.spring::after { content: ''; position: absolute; inset: 22%; border-radius: 30%; background: repeating-linear-gradient(0deg, #e8423a 0 3px, #c9ccd8 3px 6px); }
+  .tile.coin::after { content: ''; position: absolute; inset: 28% 34%; border-radius: 50%; background: #ffc928; box-shadow: inset -2px 0 0 #d99a10; animation: beat 1.2s ease-in-out infinite; }
+  .tile.star { background: #ffd34d; border-radius: 4px; }
+  .tile.star::after { content: '⭐'; position: absolute; inset: 0; display: grid; place-items: center; font-size: min(4vw, 18px); }
+  .tile.star.open { background: var(--floor); } .tile.star.open::after { opacity: .3; }
+  .tile.pswitch::after { content: 'P'; position: absolute; inset: 16%; border-radius: 6px; background: #2f6fe0; color: #fff; font-weight: 700; display: grid; place-items: center; font-size: min(3.5vw, 16px); }
+  .tile.pblock { background: #4aa8e0; }
+  .tile.pblock::after { content: ''; position: absolute; inset: 10%; border: 2px dashed #2f6fe0; border-radius: 4px; }
+  .tile.pblock.on { background: #5a92ff; } .tile.pblock.on::after { border-style: solid; border-color: #fff; }
+  .tile.pipe, .tile.spring, .tile.coin, .tile.pswitch { box-shadow: inset 0 0 0 1px var(--floor-edge); background-color: var(--floor); }
+
+  /* Start area picker */
+  .pickbtn { display: flex; align-items: center; gap: 8px; width: 100%; padding: 12px 16px; border-radius: 16px; background: #fff; color: var(--text); text-align: left; box-shadow: 0 3px 0 var(--floor-edge); }
+  .pickbtn span { color: var(--muted); font-size: .9rem; } .pickbtn b { flex: 1; font-weight: 600; } .pickbtn i { font-style: normal; color: var(--muted); }
+  .picker { display: flex; flex-direction: column; gap: 10px; max-height: 46vh; overflow-y: auto; padding: 2px; }
+  .picker small { color: var(--muted); font-weight: 600; display: block; margin-bottom: 4px; }
+  .picker .chips { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .chip { display: flex; gap: 8px; align-items: center; padding: 8px 10px; border-radius: 12px; background: #fff; color: var(--text); font-size: .95rem; text-align: left; box-shadow: 0 2px 0 var(--floor-edge); }
+  .chip b { display: grid; place-items: center; min-width: 26px; height: 26px; border-radius: 50%; background: var(--floor-edge); font-size: .85rem; }
+  .chip.sel { background: var(--mini); color: #fff; box-shadow: 0 2px 0 var(--mini-dark); } .chip.sel b { background: rgba(255,255,255,.3); }
+  body[data-zone="paddo"] { background: linear-gradient(165deg, #cdeeff 0%, #e6f7ff 50%, #fff4d6 100%) fixed; }
+
+  /* Phone held sideways: the world fills the screen and the joypads float
+     over it, one in each corner when you play together on one phone. */
+  @media (orientation: landscape) and (max-height: 540px) {
+    body.playing { padding: 0; overflow: hidden; }
+    body.playing .app { max-width: none; }
+    body.playing #game { position: fixed; inset: 0; }
+    body.playing .board-wrap { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+    body.playing .board3d { width: 100%; height: 100%; aspect-ratio: auto; }
+    body.playing .board { height: calc(100% - 16px); width: auto; max-width: 62%; }
+    body.playing .topbar { position: fixed; top: 8px; left: 10px; right: 10px; z-index: 6; pointer-events: none; }
+    body.playing .topbar > * { pointer-events: auto; }
+    body.playing .topbar .lvl { flex: 0 1 auto; margin: 0 auto; background: rgba(255,255,255,.85); border-radius: 999px; padding: 4px 16px; }
+    body.playing .topbar .lvl b { font-size: 1rem; } body.playing .topbar .lvl small { font-size: .75rem; }
+    body.playing .iconbtn { width: 40px; height: 40px; font-size: 1.1rem; }
+    body.playing .stars, body.playing #footHint { display: none; }
+    body.playing #tips { position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); width: min(54vw, 520px); z-index: 6; align-items: center; }
+    body.playing .keys { top: 58px; right: 12px; bottom: auto; }
+    body.playing .banner { top: 56px; }
+    body.playing .controls { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+    body.playing .pad { position: absolute; bottom: max(12px, env(safe-area-inset-bottom)); right: max(16px, env(safe-area-inset-right)); pointer-events: auto;
+      grid-template-columns: repeat(3, 58px); grid-template-rows: repeat(3, 58px); gap: 4px; }
+    body.playing .controls.local .pad:first-child { right: auto; left: max(16px, env(safe-area-inset-left)); }
+    body.playing .controls.local .pad { grid-template-columns: repeat(3, 52px); grid-template-rows: repeat(3, 52px); }
+    body.playing .pad button { background: rgba(255,255,255,.62); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+    body.playing .pad .label { opacity: .85; }
+    body.playing #gameMsg { position: fixed; bottom: 8px; left: 50%; transform: translateX(-50%); z-index: 6; }
+  }
+
   .confetti { position: fixed; top: -12px; width: 10px; height: 14px; border-radius: 3px; z-index: 50; pointer-events: none; animation: fall linear forwards; }
   @keyframes fall { to { transform: translateY(105vh) rotate(720deg); } }
 </style>
@@ -203,6 +257,8 @@
   <section id="lobby" class="card">
     <p class="center" style="font-size:1.1rem">Twee vriendjes, één doel:<br><b>samen bij het hartje komen</b> ❤</p>
     <input id="nameInput" maxlength="20" placeholder="Hoe heet je?" autocomplete="nickname">
+    <button class="pickbtn" id="pickBtn"><span>Begin bij</span><b id="pickText"></b><i>▾</i></button>
+    <div id="picker" class="picker hidden"></div>
     <button class="btn" id="createBtn">💞 Start een spel</button>
     <button class="btn ghost" id="showCodeBtn">Ik heb een code</button>
     <div id="codeBox" class="hidden" style="display:flex;flex-direction:column;gap:10px">
@@ -277,6 +333,7 @@ import { createBoard3D, webglAvailable } from './board3d.js';
   };
   const NAMES = ['Mini', 'Maxi'];
   const PLATE = { a: 'var(--pa)', b: 'var(--pb)', c: 'var(--pc)', d: 'var(--pd)' };
+  const PIPES = { 1: '#3fbf4f', 2: '#2fa8d8', 3: '#f08a24', 4: '#a46be0' };
   const ARROWS = { up: 0, right: 90, down: 180, left: 270 }; // degrees on screen
   const charHtml = (seat) => `<div class="char ${seat ? 'maxi' : 'mini'}"><div class="face"></div><div class="smile"></div><div class="cheek l"></div><div class="cheek r"></div></div>`;
   const vibrate = (ms) => { try { navigator.vibrate && navigator.vibrate(ms); } catch {} };
@@ -295,6 +352,8 @@ import { createBoard3D, webglAvailable } from './board3d.js';
     for (const id of ['lobby', 'invite', 'share', 'game']) $(id).classList.toggle('hidden', id !== screen);
     if (screen !== 'lobby') $('continueBox').classList.add('hidden');
     $('hero').classList.toggle('hidden', screen === 'game');
+    document.body.classList.toggle('playing', screen === 'game');
+    if (b3) b3.resize();
   }
 
   // ---------- Board ----------
@@ -303,6 +362,7 @@ import { createBoard3D, webglAvailable } from './board3d.js';
   function buildBoard(g) {
     board.innerHTML = '';
     board.style.gridTemplateColumns = `repeat(${g.tiles[0].length}, 1fr)`;
+    board.style.aspectRatio = `${g.tiles[0].length} / ${g.tiles.length}`;
     g.tiles.forEach((row, r) => row.forEach((t, c) => {
       const el = document.createElement('div');
       el.className = 'tile';
@@ -356,7 +416,16 @@ import { createBoard3D, webglAvailable } from './board3d.js';
       } else if (/^[A-D]\+?$/.test(t)) {
         cls += ' door' + (t.endsWith('+') ? ' open' : '');
         el.style.setProperty('--pc-color', PLATE[t[0].toLowerCase()]);
-      } else cls += ' floor';
+      } else if (/^[1-4]$/.test(t)) {
+        cls += ' pipe';
+        el.style.setProperty('--pipe', PIPES[t]);
+      } else if (t === 'r') cls += ' brick';
+      else if (t === 'j') cls += ' spring';
+      else if (t === '*') cls += ' coin';
+      else if (t === 'S' || t === 'S+') cls += ' star' + (t === 'S+' ? ' open' : '');
+      else if (t === 'p') cls += ' pswitch';
+      else if (t === 'q0' || t === 'q1') cls += ' pblock' + (t === 'q1' ? ' on' : '');
+      else cls += ' floor';
       el.className = cls;
     }));
   }
@@ -407,7 +476,11 @@ import { createBoard3D, webglAvailable } from './board3d.js';
     $('levelNum').textContent = `${zoneName(g.zone)} · gebied ${g.level + 1} van ${g.levels}`;
     $('levelTitle').textContent = g.title;
     const keySeats = mode === 'local' ? [0, 1] : [s.you];
-    const keyText = keySeats.filter((seat) => g.keys[seat]).map((seat) => `${NAMES[seat]} 🔑×${g.keys[seat]}`).join('  ');
+    const keyText = [
+      ...keySeats.filter((seat) => g.keys[seat]).map((seat) => `${NAMES[seat]} 🔑×${g.keys[seat]}`),
+      g.coins[1] ? `🪙 ${g.coins[0]}/${g.coins[1]}` : '',
+      g.ptimer ? `⏱ ${g.ptimer}` : '',
+    ].filter(Boolean).join('  ');
     $('keys').textContent = keyText;
     $('keys').classList.toggle('hidden', !keyText);
     $('stars').innerHTML = Array.from({ length: g.levels }, (_, i) =>
@@ -638,7 +711,7 @@ import { createBoard3D, webglAvailable } from './board3d.js';
 
   $('createBtn').onclick = async () => {
     try {
-      const data = await api('/api/rooms', { name: saveName($('nameInput').value) });
+      const data = await api('/api/rooms', { name: saveName($('nameInput').value), start: startLevel });
       startOnline(data.code, data.token, data.seat);
     } catch (e) { $('lobbyMsg').textContent = e.message; }
   };
@@ -655,7 +728,7 @@ import { createBoard3D, webglAvailable } from './board3d.js';
 
   // ---------- One device ----------
   function renderLocal() {
-    store.set('samen.local', JSON.stringify({ game: local, total: localTotal, finished: localFinished }));
+    store.set('samen.local', JSON.stringify({ game: local, area: Samen.AREAS[local.level].title, total: localTotal, finished: localFinished }));
     render({
       code: '', you: -1, players: [{ name: '' }, { name: '' }],
       game: Samen.view(local), finished: localFinished, totalMoves: localTotal,
@@ -665,23 +738,28 @@ import { createBoard3D, webglAvailable } from './board3d.js';
     mode = 'local';
     renderedLevel = -1;
     lastSolvedKey = null;
-    local = saved ? saved.game : Samen.loadLevel(0);
+    local = saved ? saved.game : Samen.loadLevel(startLevel);
     localTotal = saved ? saved.total : 0;
     localFinished = saved ? saved.finished : false;
     state = { you: -1 };
     renderLocal();
   }
   $('localBtn').onclick = () => {
-    const saved = loadLocal();
+    const saved = startLevel === 0 && loadLocal();
     if (saved && saved.game.level > 0 && !saved.finished && confirm(`Verder op één telefoon bij gebied ${saved.game.level + 1}?\n(Annuleren = opnieuw beginnen)`)) startLocal(saved);
     else startLocal(null);
   };
   function loadLocal() {
     try {
       const saved = JSON.parse(store.get('samen.local'));
-      // A saved area whose map changed since is restarted, like on the server.
-      if (!saved || !Samen.AREAS[saved.game.level]) return null;
-      if (saved.game.solved) saved.game = Samen.loadLevel(Math.min(saved.game.level + 1, Samen.AREAS.length - 1));
+      if (!saved) return null;
+      // Areas come and go between versions: find the saved one back by name,
+      // like the server does, or restart near where it was.
+      let level = Samen.AREAS.findIndex((a) => a.title === saved.area);
+      const known = level >= 0;
+      if (!known) level = Math.min(saved.game.level | 0, Samen.AREAS.length - 1);
+      if (saved.game.solved) level = Math.min(level + 1, Samen.AREAS.length - 1);
+      saved.game = known && !saved.game.solved ? { ...Samen.loadLevel(level), ...saved.game, level } : Samen.loadLevel(level);
       return saved;
     } catch { return null; }
   }
@@ -695,6 +773,27 @@ import { createBoard3D, webglAvailable } from './board3d.js';
   $('restartBtn').onclick = () => act('restart');
   $('leaveBtn').onclick = () => { if (confirm('Wil je stoppen met spelen?')) leave(); };
   $('cancelBtn').onclick = leave;
+
+  // ---------- Where to start ----------
+  let startLevel = 0;
+  function renderPicker() {
+    const area = Samen.AREAS[startLevel];
+    $('pickText').textContent = `${startLevel + 1}. ${area.title}`;
+    $('picker').innerHTML = Samen.ZONES.map((z) => {
+      const chips = Samen.AREAS.map((a, i) => (a.zone !== z.id ? '' :
+        `<button class="chip${i === startLevel ? ' sel' : ''}" data-level="${i}"><b>${i + 1}</b>${a.title}</button>`)).join('');
+      return chips && `<div><small>${z.name}</small><div class="chips">${chips}</div></div>`;
+    }).join('');
+  }
+  $('pickBtn').onclick = () => $('picker').classList.toggle('hidden');
+  $('picker').onclick = (e) => {
+    const b = e.target.closest('.chip');
+    if (!b) return;
+    startLevel = Number(b.dataset.level);
+    renderPicker();
+    $('picker').classList.add('hidden');
+  };
+  renderPicker();
 
   // ---------- Boot ----------
   const savedName = store.get('samen.name') || '';

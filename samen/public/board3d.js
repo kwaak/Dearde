@@ -19,6 +19,7 @@ const THEMES = {
   ijs: { floorA: 0xf4f8ff, floorB: 0xe6eefb, wall: 0x86afe0, top: 0xb4d2f5 },
   grot: { floorA: 0xf0e4d4, floorB: 0xe5d6c2, wall: 0x8a7464, top: 0xa48e7b },
   meer: { floorA: 0xfff3dd, floorB: 0xf7e5c6, wall: 0x4f9fb8, top: 0x72bcd2 },
+  paddo: { floorA: 0xfbf0d6, floorB: 0xf7e7c4, wall: 0xc47a3c, top: 0x5fc45a },
   kasteel: { floorA: 0xeeeaf2, floorB: 0xe2dcea, wall: 0x8b8798, top: 0xa9a5b8 },
   hart: { floorA: 0xfff0f4, floorB: 0xfde1ea, wall: 0xc45c8a, top: 0xe07ba8 },
 };
@@ -27,11 +28,13 @@ const COLORS = {
   crate: 0xc98b52, crateEdge: 0x8f5d30, heart: 0xff4d6d, gold: 0xf5c242, steel: 0x8d8fa3,
   mini: 0xff6f91, maxi: 0xffb84d, eye: 0x3d2b52, cheek: 0xff8fa8,
   a: 0xff5fa2, b: 0x3cb4ff, c: 0x9b6bff, d: 0x2fc46b, u: 0xff9f43, v: 0x1dd1a1,
+  pipes: { 1: 0x3fbf4f, 2: 0x2fa8d8, 3: 0xf08a24, 4: 0xa46be0 }, coin: 0xffc928, pblue: 0x2f6fe0, spring: 0xe8423a,
 };
 
 const WALL_H = 0.55;
 const GAP = 3; // tiles of bridge between two areas
 const STEP_MS = 170;
+const PIPE_TOP = 0.43;
 
 function heartShape() {
   const s = new THREE.Shape();
@@ -240,6 +243,56 @@ function makeKey() {
   return g;
 }
 
+// A warp pipe; pairs share a colour.
+function makePipe(color) {
+  const g = new THREE.Group();
+  const paint = mat(color, shiny({ roughness: 0.25, envMapIntensity: 0.6 }));
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.32, 40), paint);
+  body.position.y = 0.16;
+  const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.44, 0.44, 0.14, 40), paint);
+  rim.position.y = 0.36;
+  const shine = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.4, 0.02), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35 }));
+  shine.position.set(-0.18, 0.22, 0.32);
+  const hole = new THREE.Mesh(new THREE.CircleGeometry(0.34, 40), mat(0x0d2a12, { roughness: 1 }));
+  hole.rotation.x = -Math.PI / 2;
+  hole.position.y = 0.432;
+  g.add(body, rim, shine, hole);
+  return shadowed(g);
+}
+
+// A red springboard: base, coil and a bouncy top.
+function makeSpring() {
+  const g = new THREE.Group();
+  const red = mat(COLORS.spring, shiny({ roughness: 0.3, envMapIntensity: 0.5 }));
+  const steel = mat(0xc9ccd8, shiny({ metalness: 0.8, roughness: 0.25 }));
+  const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.32, 0.06, 32), red);
+  foot.position.y = 0.03;
+  const coil = new THREE.Group();
+  for (let i = 0; i < 4; i++) {
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.028, 10, 32), steel);
+    ring.rotation.x = Math.PI / 2;
+    ring.position.y = 0.09 + i * 0.06;
+    coil.add(ring);
+  }
+  const top = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.07, 32), red);
+  top.position.y = 0.33;
+  g.add(foot, coil, top);
+  g.userData = { coil, top };
+  return shadowed(g);
+}
+
+function makeCoin() {
+  const coin = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.2, 0.2, 0.05, 36),
+    mat(COLORS.coin, shiny({ metalness: 0.9, roughness: 0.2, emissive: COLORS.coin, emissiveIntensity: 0.2 })),
+  );
+  coin.rotation.x = Math.PI / 2;
+  const g = new THREE.Group();
+  const slot = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.2, 0.07), mat(0xd99a10, { metalness: 0.6, roughness: 0.4 }));
+  g.add(coin, slot);
+  return shadowed(g);
+}
+
 export function createBoard3D(container) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -279,6 +332,8 @@ export function createBoard3D(container) {
   const HEAD = [0.78, 0.98]; // where a heart floats above each character
 
   const effects = [];
+  const debris = [];
+  let pTimer = 0;
   function warpFx(pos, color) {
     const fx = makeWarp(color);
     fx.g.position.copy(pos);
@@ -321,7 +376,7 @@ export function createBoard3D(container) {
     const group = new THREE.Group();
     group.position.set(offsets[level], 0, -(g.tiles.length - 1) / 2);
     const zone = THEMES[AREAS[level].zone] ? AREAS[level].zone : 'tuin';
-    const parts = { doors: [], plates: [], tunnels: [], hearts: [], water: [], keys: [], locks: [], levers: [], crates: [] };
+    const parts = { doors: [], plates: [], tunnels: [], hearts: [], water: [], keys: [], locks: [], levers: [], crates: [], bricks: [], coins: [], springs: [], switches: [], pblocks: [] };
     const tile = (r, c) => g.tiles[r] && g.tiles[r][c];
     const open = (t) => t && t !== '#' && t !== 'o';
 
@@ -345,6 +400,19 @@ export function createBoard3D(container) {
         if (!near) return;
         const wall = add(new THREE.Mesh(wallGeo, wallMat), r, c, WALL_H / 2 - 0.2);
         wall.castShadow = true; wall.receiveShadow = true;
+        return;
+      }
+      if (t === 'q0' || t === 'q1') {
+        // Dotted outlines over the water that turn into solid blocks.
+        add(new THREE.Mesh(new THREE.BoxGeometry(1, 0.12, 1), waterMat), r, c, -0.16);
+        const solid = add(new THREE.Mesh(new THREE.BoxGeometry(0.94, 0.2, 0.94), texMat(TEX.pBlockTex(), { roughness: 0.5, transparent: true })), r, c, -0.1);
+        solid.receiveShadow = true;
+        const outline = add(new THREE.LineSegments(
+          new THREE.EdgesGeometry(new THREE.BoxGeometry(0.9, 0.18, 0.9)),
+          new THREE.LineDashedMaterial({ color: COLORS.pblue, dashSize: 0.08, gapSize: 0.06 }),
+        ), r, c, -0.05);
+        outline.computeLineDistances();
+        parts.pblocks.push({ r, c, solid, outline, on: t === 'q1' });
         return;
       }
       if (t === '~' || t === '=') {
@@ -419,6 +487,34 @@ export function createBoard3D(container) {
         lock.add(door, padlock, shackle);
         add(lock, r, c, 0);
         parts.locks.push({ mesh: lock, r, c, open: t === 'K+' });
+      } else if (/^[1-4]$/.test(t)) {
+        add(makePipe(COLORS.pipes[t]), r, c, 0);
+      } else if (t === 'r') {
+        const brick = add(new THREE.Mesh(new THREE.BoxGeometry(0.96, WALL_H + 0.05, 0.96), texMat(TEX.brickTex(), { roughness: 0.7, bumpScale: 2.5, transparent: true })), r, c, (WALL_H + 0.05) / 2);
+        brick.castShadow = true;
+        brick.receiveShadow = true;
+        parts.bricks.push({ mesh: brick, r, c, broken: false });
+      } else if (t === 'j') {
+        const spring = add(makeSpring(), r, c, 0);
+        parts.springs.push({ obj: spring, r, c, at: 0 });
+      } else if (t === '*') {
+        const coin = add(makeCoin(), r, c, 0.4);
+        parts.coins.push({ mesh: coin, r, c, taken: 0 });
+      } else if (t === 'S' || t === 'S+') {
+        const door = add(new THREE.Mesh(new THREE.BoxGeometry(0.9, WALL_H + 0.1, 0.9), texMat(TEX.starDoorTex(), shiny({ roughness: 0.3, bumpScale: 1.5, envMapIntensity: 0.5 }))), r, c, (WALL_H + 0.1) / 2);
+        door.castShadow = true;
+        parts.doors.push({ mesh: door, r, c, y: door.position.y, open: t === 'S+' });
+      } else if (t === 'p') {
+        const sw = new THREE.Group();
+        const base = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.34, 0.06, 32), mat(COLORS.steel, { roughness: 0.4 }));
+        base.position.y = 0.03;
+        const top = TEX.pSwitchTex();
+        const button = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.26, 0.5), [mat(COLORS.pblue, { roughness: 0.35 }), mat(COLORS.pblue, { roughness: 0.35 }), texMat(top, { roughness: 0.35, bumpScale: 0.5 }), mat(COLORS.pblue), mat(COLORS.pblue, { roughness: 0.35 }), mat(COLORS.pblue, { roughness: 0.35 })]);
+        button.position.y = 0.19;
+        button.castShadow = true;
+        sw.add(base, button);
+        add(sw, r, c, 0);
+        parts.switches.push({ button, r, c });
       } else if (t === 'E') {
         const heart = add(new THREE.Mesh(
           new THREE.ExtrudeGeometry(heartShape(), { depth: 0.1, bevelEnabled: true, bevelThickness: 0.04, bevelSize: 0.04, bevelSegments: 3, curveSegments: 16 }),
@@ -493,10 +589,16 @@ export function createBoard3D(container) {
         // Warp out of the solved area and into the new one: no walking
         // through walls.
         players.forEach((p, seat) => {
+          p.grid = g.players[seat].slice();
+          p.pipe = null;
+          p.then = null;
           p.warp = { from: p.obj.position.clone(), to: toWorld(g.level, g.players[seat]), t0: performance.now() + seat * 160, stage: 0 };
         });
       } else {
         players.forEach((p, seat) => {
+          p.grid = g.players[seat].slice();
+          p.pipe = null;
+          p.then = null;
           p.warp = null;
           p.obj.visible = true;
           p.obj.scale.setScalar(1);
@@ -512,7 +614,34 @@ export function createBoard3D(container) {
       players.forEach((p, seat) => {
         const target = toWorld(g.level, g.players[seat]);
         if (p.warp) { p.warp.to = target; return; }
-        if (p.path[p.path.length - 1].distanceTo(target) > 1e-6) walk(p, [target], STEP_MS * Math.max(1, Math.round(p.obj.position.distanceTo(target))) ** 0.7, p.hopHeight);
+        const from = p.grid;
+        p.grid = g.players[seat].slice();
+        const [r, c] = g.players[seat];
+        const tile = (rr, cc) => g.tiles[rr] && g.tiles[rr][cc];
+        if (/^[1-4]$/.test(tile(r, c))) target.y = PIPE_TOP; // stand on top of a pipe
+        if (p.path[p.path.length - 1].distanceTo(target) <= 1e-6) return;
+        // Came out of a warp pipe: dive into the other one, pop out here.
+        if (from && /^[1-4]$/.test(tile(r, c))) {
+          const entry = [[0, 1], [1, 0], [0, -1], [-1, 0]].map(([dr, dc]) => [from[0] + dr, from[1] + dc])
+            .find(([rr, cc]) => tile(rr, cc) === tile(r, c) && (rr !== r || cc !== c));
+          if (entry) {
+            p.pipe = { a: toWorld(g.level, entry), b: target, t0: performance.now() };
+            return;
+          }
+        }
+        // Bounced off a springboard on the way: a big leap.
+        if (live && from && (from[0] === r || from[1] === c)) {
+          const spring = live.springs.find((sp) => (sp.r === r && sp.r === from[0] && (sp.c - from[1]) * (sp.c - c) < 0)
+            || (sp.c === c && sp.c === from[1] && (sp.r - from[0]) * (sp.r - r) < 0));
+          if (spring) {
+            spring.used = true;
+            const springAt = toWorld(g.level, [spring.r, spring.c]);
+            walk(p, [springAt], STEP_MS, p.hopHeight);
+            p.then = { points: [target], dur: 420, hop: 1.1, at: performance.now() + STEP_MS };
+            return;
+          }
+        }
+        walk(p, [target], STEP_MS * Math.max(1, Math.round(p.obj.position.distanceTo(target))) ** 0.7, p.hopHeight);
       });
     }
 
@@ -551,6 +680,30 @@ export function createBoard3D(container) {
     for (const k of parts.keys) k.mesh.visible = g.tiles[k.r][k.c] === 'k';
     for (const l of parts.locks) l.open = g.tiles[l.r][l.c] === 'K+';
     for (const l of parts.levers) l.on = g.tiles[l.r][l.c].endsWith('1');
+    const now = performance.now();
+    for (const b of parts.bricks) {
+      const broken = g.tiles[b.r][b.c] === '.';
+      if (broken && !b.broken) { b.at = now; smash(b.mesh.parent.position.x + b.c, b.r - (g.tiles.length - 1) / 2); }
+      b.broken = broken;
+    }
+    for (const k of parts.coins) if (g.tiles[k.r][k.c] !== '*' && !k.taken) k.taken = now;
+    for (const sp of parts.springs) if (sp.used) { sp.at = now; sp.used = false; }
+    for (const q of parts.pblocks) q.on = g.tiles[q.r][q.c] === 'q1';
+    pTimer = g.ptimer;
+    for (const sw of parts.switches) sw.pressed = g.ptimer > 0;
+  }
+
+  // Brick crumbs flying off when Maxi smashes a block.
+  function smash(x, z) {
+    const brickMat = texMat(TEX.brickTex(), { roughness: 0.7 });
+    for (let i = 0; i < 8; i++) {
+      const bit = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.14, 0.18), brickMat);
+      bit.position.set(x + (Math.random() - 0.5) * 0.5, 0.3 + Math.random() * 0.2, z + (Math.random() - 0.5) * 0.5);
+      bit.userData.v = new THREE.Vector3((Math.random() - 0.5) * 3, 2.5 + Math.random() * 2, (Math.random() - 0.5) * 3);
+      bit.castShadow = true;
+      scene.add(bit);
+      debris.push({ bit, t0: performance.now() });
+    }
   }
 
   function bump(seat) {
@@ -627,6 +780,34 @@ export function createBoard3D(container) {
     }
   }
 
+  // Down one pipe, up the other.
+  function animatePipe(m, now) {
+    const { a, b, t0 } = m.pipe;
+    const t = now - t0;
+    const obj = m.obj;
+    if (t < 160) {
+      obj.position.lerpVectors(obj.position, a, 0.5);
+      obj.position.y = PIPE_TOP;
+    } else if (t < 420) {
+      const k = (t - 160) / 260;
+      obj.position.set(a.x, PIPE_TOP - k * 0.9, a.z);
+      obj.scale.setScalar(1 - k * 0.4);
+    } else if (t < 560) {
+      obj.visible = false;
+    } else if (t < 860) {
+      const k = (t - 560) / 300;
+      obj.visible = true;
+      obj.position.set(b.x, PIPE_TOP - 0.9 + k * 0.9 + Math.sin(k * Math.PI) * 0.35, b.z);
+      obj.scale.setScalar(0.6 + k * 0.4);
+    } else {
+      obj.scale.setScalar(1);
+      obj.position.copy(b);
+      m.pipe = null;
+      m.path = [obj.position.clone()];
+      m.t0 = 0;
+    }
+  }
+
   function animateEffects(now) {
     for (let i = effects.length - 1; i >= 0; i--) {
       const fx = effects[i];
@@ -650,10 +831,15 @@ export function createBoard3D(container) {
     }
   }
 
-  function animate(now) {
+  function animate() {
+    // Same clock as the moves themselves; the frame timestamp can lag behind
+    // it, which made a fresh step briefly run backwards.
+    const now = performance.now();
     if (current >= 0) {
       players.forEach((m, seat) => {
         if (m.warp) return animateWarp(m, seat, now);
+        if (m.pipe) return animatePipe(m, now);
+        if (m.then && now >= m.then.at) { walk(m, m.then.points, m.then.dur, m.then.hop); m.then = null; }
         const t = Math.min(1, (now - m.t0) / m.dur);
         const p = along(m.path, t);
         p.y += m.hop * Math.abs(Math.sin(Math.PI * t));
@@ -665,6 +851,14 @@ export function createBoard3D(container) {
         });
       });
       animateEffects(now);
+      for (let i = debris.length - 1; i >= 0; i--) {
+        const d = debris[i];
+        const t = (now - d.t0) / 1000;
+        d.bit.position.addScaledVector(d.bit.userData.v, 1 / 60);
+        d.bit.userData.v.y -= 9.8 / 60;
+        d.bit.rotation.x += 0.2;
+        if (t > 0.9) { scene.remove(d.bit); d.bit.geometry.dispose(); debris.splice(i, 1); }
+      }
       if (live) {
         for (const c of live.crates) {
           const t = Math.min(1, (now - c.t0) / c.dur);
@@ -688,6 +882,37 @@ export function createBoard3D(container) {
           const target = l.on ? 0.6 : -0.6;
           l.stick.rotation.z += (target - l.stick.rotation.z) * 0.25;
         }
+        for (const b of live.bricks) {
+          if (!b.broken) continue;
+          const k = Math.min(1, (now - (b.at || 0)) / 180);
+          b.mesh.scale.setScalar(Math.max(0.001, 1 - k));
+          b.mesh.visible = k < 1;
+        }
+        live.coins.forEach((k, i) => {
+          if (k.taken) {
+            const t = (now - k.taken) / 450;
+            k.mesh.position.y = 0.4 + t * 1.2;
+            k.mesh.rotation.y += 0.5;
+            k.mesh.visible = t < 1;
+          } else {
+            k.mesh.rotation.y = now / 400 + i;
+            k.mesh.position.y = 0.4 + Math.sin(now / 350 + i) * 0.05;
+          }
+        });
+        for (const sp of live.springs) {
+          const t = (now - sp.at) / 400;
+          const squash = t < 1 ? 1 - Math.sin(t * Math.PI) * 0.45 * (1 - t) : 1;
+          sp.obj.userData.coil.scale.y = squash;
+          sp.obj.userData.top.position.y = 0.06 + 0.27 * squash;
+        }
+        for (const sw of live.switches) sw.button.scale.y += ((sw.pressed ? 0.3 : 1) - sw.button.scale.y) * 0.3;
+        for (const q of live.pblocks) {
+          // Blink when the blocks are about to vanish again.
+          const blink = q.on && pTimer <= 2 && Math.sin(now / 70) > 0;
+          q.solid.visible = q.on;
+          q.solid.material.opacity = blink ? 0.45 : 1;
+          q.outline.visible = !q.on;
+        }
         live.keys.forEach((k, i) => { k.mesh.rotation.y = now / 500 + i; k.mesh.position.y = 0.4 + Math.sin(now / 350 + i) * 0.05; });
       }
       for (const parts of [live, prevParts]) if (parts) animateHearts(parts.hearts, now);
@@ -703,6 +928,9 @@ export function createBoard3D(container) {
       camera.position.copy(cam.target).addScaledVector(DIR, 40);
       camera.lookAt(cam.target);
       let halfW = cam.hw, halfH = cam.hh;
+      // Sideways phone: leave the corners free for the floating joypads and
+      // the top for the title.
+      if (cam.aspect > 1.3) { halfW /= 0.64; halfH /= 0.84; }
       if (halfW / halfH > cam.aspect) halfH = halfW / cam.aspect; else halfW = halfH * cam.aspect;
       Object.assign(camera, { left: -halfW, right: halfW, top: halfH, bottom: -halfH });
       camera.updateProjectionMatrix();

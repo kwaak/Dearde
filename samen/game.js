@@ -18,6 +18,13 @@
   //   a-d button: opens door A-D while a player or crate stands on it
   //   u v lever: stepping on it flips gate U / V open or shut
   //   k key: picked up by whoever steps on it; K lock: opened with a key
+  // From the Mario games:
+  //   1-4 warp pipe: stepping in pops you out of the other pipe, same number
+  //   r brick block: Maxi smashes it by walking into it, Mini bumps off
+  //   j springboard: bounces you over the next tile, two tiles on
+  //   * coin; S star door, opens once every coin of the area is collected
+  //   p P-switch: for P_TIME moves the dotted blocks q become a walkway
+  const P_TIME = 8;
   const DIRS = { up: [-1, 0], down: [1, 0], left: [0, -1], right: [0, 1] };
 
   const parsed = new Map();
@@ -26,15 +33,19 @@
       const tiles = [];
       const boxes = [];
       const players = [null, null];
+      const pipes = {};
+      let coins = 0;
       AREAS[index].map.forEach((line, r) => {
         tiles.push([...line].map((ch, c) => {
+          if (ch >= '1' && ch <= '4') (pipes[ch] = pipes[ch] || []).push([r, c]);
+          if (ch === '*') coins += 1;
           if (ch === '$') boxes.push([r, c]);
           if (ch === 'm') players[0] = [r, c];
           if (ch === 'M') players[1] = [r, c];
           return '$mM'.includes(ch) ? '.' : ch;
         }));
       });
-      parsed.set(index, { tiles, boxes, players });
+      parsed.set(index, { tiles, boxes, players, pipes, coins });
     }
     return parsed.get(index);
   }
@@ -50,6 +61,9 @@
       keys: [0, 0],    // keys held per seat
       taken: [],       // "r,c" of picked-up keys
       unlocked: [],    // "r,c" of opened locks
+      broken: [],      // "r,c" of smashed brick blocks
+      coins: [],       // "r,c" of collected coins
+      ptimer: 0,       // moves left before the dotted blocks vanish again
       moves: 0,
       solved: false,
     };
@@ -65,6 +79,8 @@
       keys: s.keys.slice(),
       taken: s.taken.slice(),
       unlocked: s.unlocked.slice(),
+      broken: s.broken.slice(),
+      coins: s.coins.slice(),
     };
   }
 
@@ -72,7 +88,7 @@
   function stateKey(s) {
     return JSON.stringify([
       s.players, s.boxes.filter(Boolean).map(String).sort(), s.filled, s.keys, s.taken, s.unlocked,
-      Object.keys(s.levers).filter((l) => s.levers[l]).sort(),
+      Object.keys(s.levers).filter((l) => s.levers[l]).sort(), s.broken, s.coins, s.ptimer,
     ]);
   }
 
@@ -97,6 +113,8 @@
   const isPlate = (t) => t >= 'a' && t <= 'd';
   const isGate = (t) => t === 'U' || t === 'V';
   const isLever = (t) => t === 'u' || t === 'v';
+  const isPipe = (t) => t >= '1' && t <= '4';
+  const starOpen = (s) => s.coins.length >= base(s.level).coins;
 
   // Doors and gates also stay open while something stands in them, so they
   // never close on a player or a crate.
@@ -105,6 +123,8 @@
     if (occupied(s, r, c)) return true;
     if (isDoor(t)) return platePressed(s, t.toLowerCase());
     if (isGate(t)) return !!s.levers[t.toLowerCase()];
+    if (t === 'S') return starOpen(s);
+    if (t === 'q') return s.ptimer > 0;
     return true;
   }
 
@@ -115,8 +135,12 @@
     if (t === 'o' || t === 'x') return who === 0;
     if (t === '~') return s.filled.includes(id(r, c));
     if (t === 'K') return s.unlocked.includes(id(r, c));
-    if (isDoor(t) || isGate(t)) return doorOpen(s, r, c);
-    if (who === 'box' && (isLever(t) || t === 'k')) return false;
+    if (t === 'r') return s.broken.includes(id(r, c));
+    if (isDoor(t) || isGate(t) || t === 'S' || t === 'q') {
+      if (who === 'box' && t === 'q') return false;
+      return doorOpen(s, r, c);
+    }
+    if (who === 'box' && (isLever(t) || t === 'k' || t === '*' || t === 'p' || t === 'j' || isPipe(t))) return false;
     return true;
   }
 
@@ -127,6 +151,48 @@
       s.keys[seat] += 1;
     } else if (isLever(t)) {
       s.levers[t] = !s.levers[t];
+    } else if (t === '*' && !s.coins.includes(id(r, c))) {
+      addSorted(s.coins, id(r, c));
+    } else if (t === 'p') {
+      s.pressed = true;
+    }
+  }
+
+  // Can you sail over (r, c) on a springboard? Anything low: water, crates,
+  // your partner. Not walls, bricks or anything that is shut.
+  function jumpable(s, r, c) {
+    const t = tileOf(s, r, c);
+    if (!t || t === '#' || t === 'o') return false;
+    if (t === 'r') return s.broken.includes(id(r, c));
+    if (t === 'K') return s.unlocked.includes(id(r, c));
+    if (isDoor(t) || isGate(t) || t === 'S') return doorOpen(s, r, c);
+    return true;
+  }
+
+  // What happens after `seat` lands on a tile while moving along `d`: pipes
+  // warp, springboards bounce, ice keeps you sliding. A partner in the way
+  // makes a perfect stopper.
+  function arrive(s, seat, d) {
+    for (let guard = 0; guard < 64; guard++) {
+      const [r, c] = s.players[seat];
+      const t = tileOf(s, r, c);
+      if (isPipe(t)) {
+        const other = base(s.level).pipes[t].find(([pr, pc]) => pr !== r || pc !== c);
+        if (other && !occupied(s, other[0], other[1])) s.players[seat] = other.slice();
+        return;
+      }
+      let nr = r + d[0];
+      let nc = c + d[1];
+      if (t === 'j') {
+        if (!jumpable(s, nr, nc)) return;
+        nr += d[0];
+        nc += d[1];
+      } else if (t !== '_') {
+        return;
+      }
+      if (occupied(s, nr, nc) || !walkable(s, nr, nc, seat)) return;
+      s.players[seat] = [nr, nc];
+      enter(s, seat, nr, nc);
     }
   }
 
@@ -171,6 +237,11 @@
       } else {
         return false;
       }
+    } else if (tileOf(s, nr, nc) === 'r' && !s.broken.includes(id(nr, nc))) {
+      // Only Maxi is strong enough; the block breaks, Maxi stays put.
+      if (seat !== 1) return false;
+      addSorted(s.broken, id(nr, nc));
+      return finish(s);
     } else if (tileOf(s, nr, nc) === 'K' && !s.unlocked.includes(id(nr, nc))) {
       if (s.keys[seat] < 1) return false;
       s.keys[seat] -= 1;
@@ -181,17 +252,15 @@
 
     s.players[seat] = [nr, nc];
     enter(s, seat, nr, nc);
-    // On ice, keep sliding until something is in the way. A partner makes a
-    // perfect stopper.
-    for (;;) {
-      const [pr, pc] = s.players[seat];
-      if (tileOf(s, pr, pc) !== '_') break;
-      const sr = pr + d[0];
-      const sc = pc + d[1];
-      if (occupied(s, sr, sc) || !walkable(s, sr, sc, seat)) break;
-      s.players[seat] = [sr, sc];
-      enter(s, seat, sr, sc);
-    }
+    arrive(s, seat, d);
+    return finish(s);
+  }
+
+  // Bookkeeping after every move: the P-switch clock and the win check.
+  function finish(s) {
+    if (s.pressed) s.ptimer = P_TIME;
+    else if (s.ptimer > 0) s.ptimer -= 1;
+    delete s.pressed;
     s.moves += 1;
     s.solved = s.players.every(([pr, pc]) => tileOf(s, pr, pc) === 'E');
     return true;
@@ -202,6 +271,9 @@
   //   'a'..'d' button           'A'..'D' shut door, 'A+'.. open door
   //   'u0'/'u1' lever           'U0'/'U1' shut / open gate
   //   'k' key (gone: '.')       'K' lock, 'K+' opened lock
+  //   '1'..'4' pipe             'r' brick (smashed: '.')    'j' springboard
+  //   '*' coin (taken: '.')     'S' / 'S+' shut / open star door
+  //   'p' P-switch              'q0' / 'q1' dotted block off / solid
   function view(s) {
     const tiles = base(s.level).tiles.map((row, r) => row.map((t, c) => {
       if (t === '~') return s.filled.includes(id(r, c)) ? '=' : '~';
@@ -210,6 +282,10 @@
       if (isDoor(t)) return doorOpen(s, r, c) ? t + '+' : t;
       if (isGate(t)) return t + (doorOpen(s, r, c) ? '1' : '0');
       if (isLever(t)) return t + (s.levers[t] ? '1' : '0');
+      if (t === 'r') return s.broken.includes(id(r, c)) ? '.' : 'r';
+      if (t === '*') return s.coins.includes(id(r, c)) ? '.' : '*';
+      if (t === 'S') return doorOpen(s, r, c) ? 'S+' : 'S';
+      if (t === 'q') return doorOpen(s, r, c) ? 'q1' : 'q0';
       return t;
     }));
     const area = AREAS[s.level];
@@ -223,6 +299,9 @@
       boxes: s.boxes,
       players: s.players,
       keys: s.keys,
+      coins: [s.coins.length, base(s.level).coins],
+      ptimer: s.ptimer,
+      ptime: P_TIME,
       moves: s.moves,
       solved: s.solved,
     };

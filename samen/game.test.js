@@ -108,3 +108,49 @@ test('doors open only while their button is pressed', () => {
   s.players[0] = [2, 2];
   assert.ok(move(s, 1, 'down'));
 });
+
+test('a warp pipe pops you out of the other pipe with the same number', () => {
+  const { s } = scratch(['#######', '#m1#1.#', '#M.#..#', '#######']);
+  assert.ok(move(s, 0, 'right'));
+  assert.deepStrictEqual(s.players[0], [1, 4]);
+  assert.ok(move(s, 0, 'right'));
+  assert.ok(move(s, 0, 'left'), 'and back again');
+  assert.deepStrictEqual(s.players[0], [1, 2]);
+});
+
+test('only Maxi smashes brick blocks', () => {
+  const { s } = scratch(['#####', '#mr.#', '#Mr.#', '#####']);
+  assert.strictEqual(move(s, 0, 'right'), false);
+  assert.ok(move(s, 1, 'right'), 'the block breaks');
+  assert.deepStrictEqual(s.players[1], [2, 1], 'Maxi stays put');
+  assert.ok(move(s, 1, 'right'));
+  assert.deepStrictEqual(s.players[1], [2, 2]);
+});
+
+test('a springboard bounces you over water, but not over walls', () => {
+  const { s } = scratch(['#######', '#mj~..#', '#.j#..#', '#M....#', '#######']);
+  assert.ok(move(s, 0, 'right'));
+  assert.deepStrictEqual(s.players[0], [1, 4]);
+  s.players[0] = [2, 1];
+  assert.ok(move(s, 0, 'right'));
+  assert.deepStrictEqual(s.players[0], [2, 2], 'stays on the spring');
+});
+
+test('the star door opens once every coin is collected', () => {
+  const { s } = scratch(['#######', '#m*..S#', '#M.*.##', '#######']);
+  move(s, 0, 'right');
+  move(s, 0, 'right');
+  move(s, 0, 'right');
+  assert.strictEqual(move(s, 0, 'right'), false, 'one coin is not enough');
+  move(s, 1, 'right');
+  move(s, 1, 'right');
+  assert.ok(move(s, 0, 'right'), 'all coins: open');
+});
+
+test('a P-switch makes the dotted blocks solid for a few moves', () => {
+  const { s } = scratch(['#############', '#mpqqqqqqqqq#', '#M..........#', '#############']);
+  assert.strictEqual(move(s, 1, 'up'), false, 'blocked by Mini');
+  assert.ok(move(s, 0, 'right'));
+  for (let i = 0; i < 8; i++) assert.ok(move(s, 0, 'right'), `step ${i + 1} on the blocks`);
+  assert.strictEqual(move(s, 0, 'right'), false, 'time is up');
+});

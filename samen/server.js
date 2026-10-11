@@ -31,11 +31,11 @@ function cleanName(name, fallback) {
   return s || fallback;
 }
 
-function createRoom() {
+function createRoom(start) {
   const room = {
     code: makeCode(),
     players: [null, null], // { name, token }
-    game: loadLevel(0),
+    game: loadLevel(start),
     finished: false, // the whole world is done
     totalMoves: 0,
     clients: new Set(), // { res, seat }
@@ -49,26 +49,28 @@ function createRoom() {
 
 let saveTimer = null;
 function scheduleSave() {
-  if (saveTimer) return;
-  saveTimer = setTimeout(() => {
-    saveTimer = null;
-    const data = [...rooms.values()].map((r) => ({
-      code: r.code,
-      players: r.players,
-      game: r.game,
-      area: AREAS[r.game.level].title,
-      finished: r.finished,
-      totalMoves: r.totalMoves,
-      touched: r.touched,
-    }));
-    try {
-      fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
-      fs.writeFileSync(DATA_FILE + '.tmp', JSON.stringify(data));
-      fs.renameSync(DATA_FILE + '.tmp', DATA_FILE);
-    } catch (err) {
-      console.error('could not save progress:', err.message);
-    }
-  }, 1000);
+  if (!saveTimer) saveTimer = setTimeout(saveNow, 1000);
+}
+
+function saveNow() {
+  clearTimeout(saveTimer);
+  saveTimer = null;
+  const data = [...rooms.values()].map((r) => ({
+    code: r.code,
+    players: r.players,
+    game: r.game,
+    area: AREAS[r.game.level].title,
+    finished: r.finished,
+    totalMoves: r.totalMoves,
+    touched: r.touched,
+  }));
+  try {
+    fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
+    fs.writeFileSync(DATA_FILE + '.tmp', JSON.stringify(data));
+    fs.renameSync(DATA_FILE + '.tmp', DATA_FILE);
+  } catch (err) {
+    console.error('could not save progress:', err.message);
+  }
 }
 
 function loadRooms() {
@@ -79,12 +81,13 @@ function loadRooms() {
     return;
   }
   for (const d of data) {
-    let game = d.game;
-    // The world may have changed since this was saved: keep the area number
-    // but restart that area when its map is no longer the same one.
-    let level = Math.min(Math.max(0, game.level | 0), AREAS.length - 1);
-    if (game.solved && !d.finished && level + 1 < AREAS.length) level += 1;
-    if (level !== game.level || AREAS[level].title !== d.area) game = loadLevel(level);
+    // The world may have changed since this was saved: find the area back by
+    // its name (areas get added and removed), otherwise stay near the old spot.
+    let level = AREAS.findIndex((a) => a.title === d.area);
+    const known = level >= 0;
+    if (!known) level = Math.min(Math.max(0, d.game.level | 0), AREAS.length - 1);
+    if (d.game.solved && !d.finished && level + 1 < AREAS.length) level += 1;
+    const game = known && !d.game.solved ? { ...loadLevel(level), ...d.game, level } : loadLevel(level);
     rooms.set(d.code, {
       code: d.code,
       players: d.players,
@@ -191,7 +194,8 @@ async function handleApi(req, res, url) {
 
   if (req.method === 'POST' && parts.length === 2 && parts[1] === 'rooms') {
     const body = await readJson(req);
-    const room = createRoom();
+    const start = Math.min(Math.max(0, Number(body.start) | 0), AREAS.length - 1);
+    const room = createRoom(start);
     const token = crypto.randomUUID();
     room.players[0] = { name: cleanName(body.name, 'Mini'), token };
     return send(res, 201, { code: room.code, token, seat: 0 });
@@ -332,6 +336,8 @@ setInterval(() => {
 
 if (require.main === module) {
   loadRooms();
+  // A redeploy stops the container: write the last moves to disk first.
+  for (const sig of ['SIGTERM', 'SIGINT']) process.on(sig, () => { saveNow(); process.exit(0); });
   server.listen(PORT, () => console.log(`Samen listening on :${PORT}`));
 }
 

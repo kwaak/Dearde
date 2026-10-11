@@ -195,6 +195,15 @@ const FLOORS = {
     }
     speckle(ctx, s, rand, ['rgba(120,110,140,.15)'], 40, 1, 3);
   },
+  paddo(ctx, s, rand, v) {
+    ctx.fillStyle = v ? '#f7e7c4' : '#fbf0d6';
+    ctx.fillRect(0, 0, s, s);
+    ctx.fillStyle = v ? 'rgba(214,170,110,.28)' : 'rgba(214,170,110,.18)';
+    ctx.beginPath();
+    ctx.moveTo(s / 2, s * 0.14); ctx.lineTo(s * 0.86, s / 2); ctx.lineTo(s / 2, s * 0.86); ctx.lineTo(s * 0.14, s / 2);
+    ctx.fill();
+    speckle(ctx, s, rand, ['rgba(190,140,80,.2)', 'rgba(255,255,255,.5)'], 60, 0.8, 2);
+  },
   hart(ctx, s, rand, v) {
     ctx.fillStyle = '#f6c6d6';
     ctx.fillRect(0, 0, s, s);
@@ -250,6 +259,23 @@ const WALLS = {
       return;
     }
     bricks(ctx, s, rand, '#8f8a9e', '#6f6a7e', 4, 2, 0.1);
+  },
+  // Grassy ground blocks, like the hills of a platform game.
+  paddo(ctx, s, rand, top) {
+    if (top) {
+      ctx.fillStyle = '#5fc45a';
+      ctx.fillRect(0, 0, s, s);
+      speckle(ctx, s, rand, ['#7bd86f', '#4fae4b', '#8ee27e'], 120, 2, 6);
+      return;
+    }
+    ctx.fillStyle = '#c47a3c';
+    ctx.fillRect(0, 0, s, s);
+    speckle(ctx, s, rand, ['#a8612b', '#d99055', '#b56c33'], 50, 3, 8);
+    ctx.fillStyle = '#5fc45a';
+    ctx.fillRect(0, 0, s, s * 0.2);
+    for (let x = 0; x < s; x += 12) {
+      ctx.beginPath(); ctx.arc(x + 6, s * 0.2, 6, 0, Math.PI); ctx.fill();
+    }
   },
   hart(ctx, s, rand, top) {
     if (top) {
@@ -447,5 +473,65 @@ export function woodTex(color) {
     }
     ctx.globalAlpha = 1;
     speckle(ctx, s, rand, [shade(color, -0.12)], 6, 2, 5);
+  });
+}
+
+// ---------- Mushroom kingdom ----------
+
+// Classic breakable bricks: warm orange with dark mortar.
+export function brickTex() {
+  return make('brick', 128, (ctx, s, rand) => {
+    bricks(ctx, s, rand, '#d9772f', '#5a2d12', 4, 2, 0.06);
+    ctx.fillStyle = 'rgba(255,220,170,.25)';
+    for (let r = 0; r < 4; r++) ctx.fillRect(0, r * (s / 4) + 3, s, 2);
+  });
+}
+
+// A gold door with a big star; opens once every coin is collected.
+export function starDoorTex() {
+  return make('stardoor', 128, (ctx, s) => {
+    ctx.fillStyle = '#e0a21b';
+    ctx.fillRect(0, 0, s, s);
+    ctx.fillStyle = '#ffd34d';
+    ctx.beginPath(); ctx.roundRect(8, 8, s - 16, s - 16, 10); ctx.fill();
+    ctx.fillStyle = '#fff6c2';
+    ctx.strokeStyle = '#c98a0e';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    for (let i = 0; i < 10; i++) {
+      const r = i % 2 ? s * 0.15 : s * 0.34;
+      const a = -Math.PI / 2 + (i * Math.PI) / 5;
+      ctx.lineTo(s / 2 + Math.cos(a) * r, s / 2 + Math.sin(a) * r);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  });
+}
+
+// The top of the P-switch.
+export function pSwitchTex() {
+  return make('pswitch', 128, (ctx, s) => {
+    ctx.fillStyle = '#2f6fe0';
+    ctx.fillRect(0, 0, s, s);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `bold ${s * 0.62}px Fredoka, Arial, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('P', s / 2, s * 0.54);
+  });
+}
+
+// Solid blue blocks while the P-switch runs.
+export function pBlockTex() {
+  return make('pblock', 128, (ctx, s) => {
+    ctx.fillStyle = '#2f6fe0';
+    ctx.fillRect(0, 0, s, s);
+    ctx.fillStyle = '#5a92ff';
+    ctx.beginPath(); ctx.roundRect(8, 8, s - 16, s - 16, 8); ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    for (const [x, y] of [[0.25, 0.25], [0.75, 0.25], [0.25, 0.75], [0.75, 0.75]]) {
+      ctx.beginPath(); ctx.arc(s * x, s * y, 5, 0, Math.PI * 2); ctx.fill();
+    }
   });
 }
