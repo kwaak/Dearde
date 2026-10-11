@@ -52,41 +52,168 @@ const shiny = (extra = {}) => ({ envMap: ENV, envMapIntensity: 1, ...extra });
 // A material painted with a procedural texture that is also its bump map.
 const texMat = (tex, extra = {}) => mat(0xffffff, { map: tex.map, bumpMap: tex.bump, bumpScale: 1.5, ...extra });
 
-function face(group, frontZ, eyeY, spread, scale = 1) {
-  const eyeMat = mat(COLORS.eye, { roughness: 0.4 });
-  const cheekMat = mat(COLORS.cheek, { roughness: 0.9 });
+// ---------- Mini and Maxi ----------
+
+// Big glossy cartoon eyes: white, pupil and a highlight.
+function eyes(group, x, y, z, size) {
+  const white = mat(0xffffff, { roughness: 0.15 });
+  const pupilMat = mat(COLORS.eye, { roughness: 0.1 });
+  const shineMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
   for (const side of [-1, 1]) {
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.045 * scale, 12, 12), eyeMat);
-    eye.position.set(side * spread, eyeY, frontZ);
-    const cheek = new THREE.Mesh(new THREE.SphereGeometry(0.045 * scale, 12, 12), cheekMat);
-    cheek.scale.set(1.3, 0.7, 0.4);
-    cheek.position.set(side * spread * 1.6, eyeY - 0.08 * scale, frontZ - 0.01);
-    group.add(eye, cheek);
+    const eye = new THREE.Group();
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(size, 28, 20), white);
+    ball.scale.set(1, 1.15, 0.55);
+    const pupil = new THREE.Mesh(new THREE.SphereGeometry(size * 0.62, 24, 16), pupilMat);
+    pupil.scale.set(1, 1.1, 0.5);
+    pupil.position.set(0, -size * 0.1, size * 0.3);
+    const shine = new THREE.Mesh(new THREE.SphereGeometry(size * 0.2, 12, 8), shineMat);
+    shine.position.set(size * 0.25, size * 0.2, size * 0.6);
+    eye.add(ball, pupil, shine);
+    eye.position.set(side * x, y, z);
+    group.add(eye);
   }
-  const smile = new THREE.Mesh(new THREE.TorusGeometry(0.06 * scale, 0.014 * scale, 8, 16, Math.PI), eyeMat);
-  smile.rotation.z = Math.PI;
-  smile.position.set(0, eyeY - 0.07 * scale, frontZ + 0.005);
-  group.add(smile);
 }
 
+function mouth(group, y, z, r) {
+  const m = new THREE.Mesh(new THREE.TorusGeometry(r, r * 0.22, 10, 24, Math.PI), mat(COLORS.eye, { roughness: 0.4 }));
+  m.rotation.z = Math.PI;
+  m.position.set(0, y, z);
+  group.add(m);
+}
+
+function cheeks(group, x, y, z, r) {
+  const blush = mat(COLORS.cheek, { roughness: 0.9, transparent: true, opacity: 0.85 });
+  for (const side of [-1, 1]) {
+    const c = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 12), blush);
+    c.scale.set(1.3, 0.75, 0.35);
+    c.position.set(side * x, y, z);
+    c.rotation.y = side * 0.5;
+    group.add(c);
+  }
+}
+
+// A box with softly rounded edges and corners.
+function roundedBox(w, h, d, r) {
+  const shape = new THREE.Shape();
+  const x = (w - 2 * r) / 2, y = (h - 2 * r) / 2, k = Math.min(x, y) * 0.5;
+  shape.moveTo(-x + k, -y);
+  shape.lineTo(x - k, -y); shape.quadraticCurveTo(x, -y, x, -y + k);
+  shape.lineTo(x, y - k); shape.quadraticCurveTo(x, y, x - k, y);
+  shape.lineTo(-x + k, y); shape.quadraticCurveTo(-x, y, -x, y - k);
+  shape.lineTo(-x, -y + k); shape.quadraticCurveTo(-x, -y, -x + k, -y);
+  const geo = new THREE.ExtrudeGeometry(shape, {
+    depth: d - 2 * r, bevelEnabled: true, bevelThickness: r, bevelSize: r, bevelSegments: 6, curveSegments: 10,
+  });
+  geo.center();
+  geo.computeVertexNormals();
+  return geo;
+}
+
+const shadowed = (o) => { o.traverse((m) => { if (m.isMesh) m.castShadow = true; }); return o; };
+
+// Mini: a soft felt ball with a little sprout on top.
 function makeMini() {
   const g = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.SphereGeometry(0.28, 32, 24), mat(COLORS.mini, { roughness: 0.45 }));
-  body.position.y = 0.28;
-  body.castShadow = true;
-  g.add(body);
-  face(g, 0.265, 0.33, 0.09);
-  return g;
+  const felt = texMat(TEX.feltTex(0xff8fab), { roughness: 0.9, bumpScale: 2.5 });
+  const dark = texMat(TEX.feltTex(0xf0607f), { roughness: 0.9, bumpScale: 2.5 });
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.28, 64, 48), felt);
+  body.scale.set(1, 0.94, 1);
+  body.position.y = 0.31;
+  const belly = new THREE.Mesh(new THREE.SphereGeometry(0.16, 40, 30), texMat(TEX.feltTex(0xffc4d3), { roughness: 0.9, bumpScale: 2 }));
+  belly.scale.set(1, 0.95, 0.4);
+  belly.position.set(0, 0.22, 0.21);
+  g.add(body, belly);
+  eyes(g, 0.09, 0.37, 0.235, 0.058);
+  mouth(g, 0.29, 0.275, 0.04);
+  cheeks(g, 0.165, 0.3, 0.205, 0.045);
+  for (const side of [-1, 1]) {
+    const arm = new THREE.Mesh(new THREE.SphereGeometry(0.07, 24, 16), felt);
+    arm.scale.set(0.65, 1, 0.65);
+    arm.position.set(side * 0.27, 0.26, 0.03);
+    arm.rotation.z = side * 0.5;
+    g.add(arm);
+  }
+  g.userData.feet = [-1, 1].map((side) => {
+    const foot = new THREE.Mesh(new THREE.SphereGeometry(0.085, 24, 16), dark);
+    foot.scale.set(1, 0.55, 1.3);
+    foot.position.set(side * 0.11, 0.045, 0.05);
+    g.add(foot);
+    return foot;
+  });
+  // The sprout: a stem with two leaves.
+  const leafMat = mat(0x5fc46a, { roughness: 0.5 });
+  const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.013, 0.016, 0.11, 10), leafMat);
+  stem.position.y = 0.6;
+  g.add(stem);
+  for (const side of [-1, 1]) {
+    const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.06, 20, 12), leafMat);
+    leaf.scale.set(1, 0.22, 0.5);
+    leaf.position.set(side * 0.055, 0.66, 0);
+    leaf.rotation.z = side * 0.45;
+    g.add(leaf);
+  }
+  return shadowed(g);
 }
 
+// Maxi: a sturdy wooden block with little round ears and strong eyebrows.
 function makeMaxi() {
   const g = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.74, 0.66, 2, 2, 2), mat(COLORS.maxi, { roughness: 0.5 }));
-  body.position.y = 0.37;
-  body.castShadow = true;
+  const wood = texMat(TEX.woodTex(COLORS.maxi), { roughness: 0.45, bumpScale: 1.5 });
+  const darkWood = texMat(TEX.woodTex(0xe08a2c), { roughness: 0.5, bumpScale: 1.5 });
+  const body = new THREE.Mesh(roundedBox(0.62, 0.66, 0.58, 0.12), wood);
+  body.position.y = 0.4;
   g.add(body);
-  face(g, 0.335, 0.47, 0.12, 1.3);
-  return g;
+  for (const side of [-1, 1]) {
+    const ear = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.095, 0.07, 28), darkWood);
+    ear.rotation.x = Math.PI / 2;
+    ear.position.set(side * 0.21, 0.74, -0.02);
+    const inner = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.075, 24), mat(COLORS.cheek, { roughness: 0.8 }));
+    inner.rotation.x = Math.PI / 2;
+    inner.position.set(side * 0.21, 0.74, -0.015);
+    g.add(ear, inner);
+  }
+  eyes(g, 0.125, 0.47, 0.29, 0.07);
+  const browMat = mat(COLORS.eye, { roughness: 0.5 });
+  for (const side of [-1, 1]) {
+    const brow = new THREE.Mesh(roundedBox(0.1, 0.03, 0.03, 0.012), browMat);
+    brow.position.set(side * 0.125, 0.565, 0.3);
+    brow.rotation.z = side * -0.18;
+    g.add(brow);
+  }
+  mouth(g, 0.36, 0.3, 0.055);
+  cheeks(g, 0.22, 0.38, 0.285, 0.05);
+  for (const side of [-1, 1]) {
+    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.065, 0.16, 8, 16), wood);
+    arm.position.set(side * 0.37, 0.36, 0.02);
+    arm.rotation.z = side * 0.3;
+    g.add(arm);
+  }
+  g.userData.feet = [-1, 1].map((side) => {
+    const foot = new THREE.Mesh(roundedBox(0.19, 0.09, 0.25, 0.035), darkWood);
+    foot.position.set(side * 0.15, 0.045, 0.04);
+    g.add(foot);
+    return foot;
+  });
+  return shadowed(g);
+}
+
+// Light column, ring and sparkles for warping between areas.
+function makeWarp(color) {
+  const g = new THREE.Group();
+  const glow = (c, extra = {}) => new THREE.MeshBasicMaterial({ color: c, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, ...extra });
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 2.6, 32, 1, true), glow(color, { side: THREE.DoubleSide, opacity: 0 }));
+  beam.position.y = 1.3;
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.035, 10, 48), glow(0xffffff));
+  ring.rotation.x = Math.PI / 2;
+  ring.position.y = 0.05;
+  const sparks = Array.from({ length: 16 }, (_, i) => {
+    const sp = new THREE.Mesh(new THREE.SphereGeometry(0.028, 8, 6), glow(i % 2 ? 0xffffff : color));
+    sp.userData = { a: (i / 16) * Math.PI * 2, r: 0.2 + (i % 4) * 0.07, v: 0.8 + (i % 5) * 0.25 };
+    g.add(sp);
+    return sp;
+  });
+  g.add(beam, ring);
+  return { g, beam, ring, sparks };
 }
 
 function makeCrate() {
@@ -149,6 +276,17 @@ export function createBoard3D(container) {
   });
   players[0].hopHeight = 0.28;
   players[1].hopHeight = 0.18;
+  const HEAD = [0.78, 0.98]; // where a heart floats above each character
+
+  const effects = [];
+  function warpFx(pos, color) {
+    const fx = makeWarp(color);
+    fx.g.position.copy(pos);
+    fx.t0 = performance.now();
+    scene.add(fx.g);
+    effects.push(fx);
+  }
+  let prevParts = null; // the area just left, so its hearts can settle back
   const marker = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.2, 16), mat(0xffffff, { emissive: 0xffffff, emissiveIntensity: 0.4 }));
   marker.rotation.x = Math.PI;
   scene.add(marker);
@@ -291,7 +429,7 @@ export function createBoard3D(container) {
         heart.castShadow = true;
         const glow = add(new THREE.Mesh(new THREE.CircleGeometry(0.36, 32), new THREE.MeshBasicMaterial({ color: 0xffb3c1, transparent: true, opacity: 0.7 })), r, c, 0.005);
         glow.rotation.x = -Math.PI / 2;
-        parts.hearts.push(heart);
+        parts.hearts.push({ mesh: heart, x: offsets[level] + c, z: r - (g.tiles.length - 1) / 2 });
       }
     }));
 
@@ -323,6 +461,7 @@ export function createBoard3D(container) {
     for (const [lvl, entry] of groups) {
       if (lvl === g.level || Math.abs(lvl - g.level) > 1) { dispose(entry.group); groups.delete(lvl); }
     }
+    prevParts = live;
     groups.set(g.level, buildArea(g.level, g, true));
     live = groups.get(g.level).parts;
     if (g.level + 1 < AREAS.length && !groups.has(g.level + 1)) {
@@ -349,19 +488,21 @@ export function createBoard3D(container) {
     you = me;
     const travelling = current >= 0 && g.level === current + 1;
     if (g.level !== current) {
-      const from = current;
       setLevel(g);
       if (travelling) {
-        // Walk off the solved area, over the bridge, into the new one.
-        const exitX = offsets[from] + size(from).w;
-        const entryX = offsets[g.level] - 1;
+        // Warp out of the solved area and into the new one: no walking
+        // through walls.
         players.forEach((p, seat) => {
-          const lane = seat ? 0.25 : -0.25;
-          walk(p, [new THREE.Vector3(exitX - 1, 0, lane), new THREE.Vector3(exitX, 0, lane),
-            new THREE.Vector3(entryX, 0, lane), toWorld(g.level, g.players[seat])], 1700, p.hopHeight * 0.6);
+          p.warp = { from: p.obj.position.clone(), to: toWorld(g.level, g.players[seat]), t0: performance.now() + seat * 160, stage: 0 };
         });
       } else {
-        players.forEach((p, seat) => { p.obj.position.copy(toWorld(g.level, g.players[seat])); walk(p, [], 1, 0); });
+        players.forEach((p, seat) => {
+          p.warp = null;
+          p.obj.visible = true;
+          p.obj.scale.setScalar(1);
+          p.obj.position.copy(toWorld(g.level, g.players[seat]));
+          walk(p, [], 1, 0);
+        });
         cam.target.copy(cam.goal.target);
         cam.hw = cam.goal.hw;
         cam.hh = cam.goal.hh;
@@ -370,6 +511,7 @@ export function createBoard3D(container) {
     } else {
       players.forEach((p, seat) => {
         const target = toWorld(g.level, g.players[seat]);
+        if (p.warp) { p.warp.to = target; return; }
         if (p.path[p.path.length - 1].distanceTo(target) > 1e-6) walk(p, [target], STEP_MS * Math.max(1, Math.round(p.obj.position.distanceTo(target))) ** 0.7, p.hopHeight);
       });
     }
@@ -437,17 +579,92 @@ export function createBoard3D(container) {
     return path[path.length - 1].clone();
   }
 
+  // A heart with a character on its tile floats above that character's head
+  // like a little crown, instead of sitting inside it.
+  function animateHearts(hearts, now) {
+    hearts.forEach((h, i) => {
+      const seat = players.findIndex((p) => p.obj.visible && Math.abs(p.obj.position.x - h.x) < 0.3 && Math.abs(p.obj.position.z - h.z) < 0.3);
+      const p = players[seat];
+      const y = p ? p.obj.position.y + HEAD[seat] * p.obj.scale.y + 0.12 + Math.sin(now / 300 + i) * 0.03 : 0.48 + Math.sin(now / 400 + i) * 0.05;
+      const scale = p ? 0.5 * p.obj.scale.y : 0.78;
+      h.mesh.position.y += (y - h.mesh.position.y) * 0.25;
+      h.mesh.scale.setScalar(h.mesh.scale.x + (scale - h.mesh.scale.x) * 0.25);
+      h.mesh.rotation.y = Math.PI / 4 + Math.sin(now / (p ? 350 : 600) + i) * (p ? 0.35 : 0.45);
+    });
+  }
+
+  const WARP_OUT = 450, WARP_GAP = 650, WARP_IN = 520;
+  function animateWarp(m, seat, now) {
+    const w = m.warp;
+    const t = now - w.t0;
+    const obj = m.obj;
+    const color = seat ? COLORS.maxi : COLORS.mini;
+    if (t < 0) return;
+    if (w.stage === 0) { warpFx(w.from, color); w.stage = 1; }
+    if (t < WARP_OUT) {
+      const k = t / WARP_OUT;
+      obj.scale.setScalar(Math.max(0.001, 1 - k * k));
+      obj.rotation.y = Math.PI / 4 + k * k * Math.PI * 4;
+      obj.position.copy(w.from).add(new THREE.Vector3(0, k * 0.6, 0));
+    } else if (t < WARP_OUT + WARP_GAP) {
+      obj.visible = false;
+      obj.position.copy(w.to);
+    } else {
+      if (w.stage === 1) { warpFx(w.to, color); w.stage = 2; obj.visible = true; }
+      const k = Math.min(1, (t - WARP_OUT - WARP_GAP) / WARP_IN);
+      const back = 1 + 2.2 * (k - 1) ** 3 + 1.2 * (k - 1) ** 2; // ease out with a little overshoot
+      obj.scale.setScalar(Math.max(0.001, back));
+      obj.rotation.y = Math.PI / 4 + (1 - k) * Math.PI * 4;
+      obj.position.copy(w.to).add(new THREE.Vector3(0, (1 - k) * 0.7, 0));
+      if (k >= 1) {
+        obj.scale.setScalar(1);
+        obj.rotation.y = Math.PI / 4;
+        m.warp = null;
+        m.path = [w.to.clone()];
+        m.t0 = 0;
+        m.dur = 1;
+      }
+    }
+  }
+
+  function animateEffects(now) {
+    for (let i = effects.length - 1; i >= 0; i--) {
+      const fx = effects[i];
+      const t = (now - fx.t0) / 1000;
+      if (t >= 1) {
+        scene.remove(fx.g);
+        fx.g.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
+        effects.splice(i, 1);
+        continue;
+      }
+      fx.beam.material.opacity = Math.sin(Math.PI * t) * 0.5;
+      fx.beam.scale.set(1 - t * 0.5, 1, 1 - t * 0.5);
+      fx.ring.scale.setScalar(1 + t * 1.6);
+      fx.ring.material.opacity = 1 - t;
+      for (const sp of fx.sparks) {
+        const { a, r, v } = sp.userData;
+        const ang = a + t * 5;
+        sp.position.set(Math.cos(ang) * (r + t * 0.3), t * 1.8 * v, Math.sin(ang) * (r + t * 0.3));
+        sp.material.opacity = 1 - t;
+      }
+    }
+  }
+
   function animate(now) {
     if (current >= 0) {
-      for (const m of players) {
+      players.forEach((m, seat) => {
+        if (m.warp) return animateWarp(m, seat, now);
         const t = Math.min(1, (now - m.t0) / m.dur);
         const p = along(m.path, t);
-        // Hop once per tile walked.
-        const tiles = Math.max(1, Math.round(m.path.reduce((s, q, i) => (i ? s + q.distanceTo(m.path[i - 1]) : 0), 0)));
-        p.y += m.hop * Math.abs(Math.sin(Math.PI * t * (m.path.length > 2 ? tiles : 1)));
+        p.y += m.hop * Math.abs(Math.sin(Math.PI * t));
         if (m.shake && now - m.shake < 260) p.x += Math.sin((now - m.shake) / 18) * 0.06;
         m.obj.position.copy(p);
-      }
+        // Little steps while moving.
+        m.obj.userData.feet.forEach((f, i) => {
+          f.position.z = 0.05 + (t < 1 ? Math.sin(t * Math.PI * 2 + i * Math.PI) * 0.07 : 0);
+        });
+      });
+      animateEffects(now);
       if (live) {
         for (const c of live.crates) {
           const t = Math.min(1, (now - c.t0) / c.dur);
@@ -472,14 +689,12 @@ export function createBoard3D(container) {
           l.stick.rotation.z += (target - l.stick.rotation.z) * 0.25;
         }
         live.keys.forEach((k, i) => { k.mesh.rotation.y = now / 500 + i; k.mesh.position.y = 0.4 + Math.sin(now / 350 + i) * 0.05; });
-        live.hearts.forEach((h, i) => {
-          h.rotation.y = Math.PI / 4 + Math.sin(now / 600 + i) * 0.45;
-          h.position.y = 0.48 + Math.sin(now / 400 + i) * 0.05;
-        });
       }
+      for (const parts of [live, prevParts]) if (parts) animateHearts(parts.hearts, now);
       const mine = players[you];
       marker.visible = !!mine;
-      if (mine) marker.position.set(mine.obj.position.x, mine.obj.position.y + (you === 0 ? 0.85 : 1.05) + Math.sin(now / 250) * 0.06, mine.obj.position.z);
+      marker.visible = !!mine && mine.obj.visible && !mine.warp;
+      if (mine) marker.position.set(mine.obj.position.x, mine.obj.position.y + HEAD[you] + 0.5 + Math.sin(now / 250) * 0.06, mine.obj.position.z);
 
       // Glide the camera towards the current area.
       cam.target.lerp(cam.goal.target, 0.06);

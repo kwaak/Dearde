@@ -409,3 +409,43 @@ export function environment(renderer) {
   pmrem.dispose();
   return tex;
 }
+
+// ---------- Characters ----------
+
+// Soft felt: a base colour with countless tiny fibres.
+export function feltTex(color) {
+  return make('felt-' + color, 256, (ctx, s, rand) => {
+    ctx.fillStyle = hex(color);
+    ctx.fillRect(0, 0, s, s);
+    for (let i = 0; i < 2600; i++) {
+      ctx.strokeStyle = rand() < 0.5 ? shade(color, 0.08 + rand() * 0.06) : shade(color, -0.05 - rand() * 0.05);
+      ctx.globalAlpha = 0.35 + rand() * 0.4;
+      ctx.lineWidth = 0.6;
+      const x = rand() * s, y = rand() * s, a = rand() * Math.PI;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + Math.cos(a) * 3, y + Math.sin(a) * 3);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  });
+}
+
+// Warm polished wood with soft grain rings.
+export function woodTex(color) {
+  return make('wood-' + color, 256, (ctx, s, rand) => {
+    ctx.fillStyle = hex(color);
+    ctx.fillRect(0, 0, s, s);
+    for (let i = 0; i < 26; i++) {
+      ctx.strokeStyle = shade(color, -0.06 - rand() * 0.06);
+      ctx.globalAlpha = 0.35 + rand() * 0.35;
+      ctx.lineWidth = 1 + rand() * 2.5;
+      const y0 = rand() * s;
+      ctx.beginPath();
+      for (let x = 0; x <= s; x += 8) ctx.lineTo(x, y0 + Math.sin(x / 30 + i) * 6 + Math.sin(x / 9 + i * 2) * 1.5);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    speckle(ctx, s, rand, [shade(color, -0.12)], 6, 2, 5);
+  });
+}
