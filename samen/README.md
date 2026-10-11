@@ -6,14 +6,18 @@ characters with different powers can only get through it together:
 - **Mini** (player 1) is small: fits through mouse holes and over cracked floor.
 - **Maxi** (player 2) is strong: pushes crates, also into water as a bridge.
 
-The world is one journey through seven zones, each adding something new:
+The world is one journey through eight zones, each adding something new:
 the Garden (buttons and doors), the Ice Plain (you slide until something
 stops you, and a partner makes a fine stopper), the Cave (mouse holes,
 cracked floor, crates), the Lake (crate bridges), the Mushroom Kingdom
 (tricks borrowed from the Mario games: warp pipes, brick blocks only Maxi can
 smash, springboards, coins that open a star door and a P-switch that turns
-dotted blocks solid for 8 moves), the Castle (keys, locks and levers) and
-the Heart, where everything comes together. When both players
+dotted blocks solid for 8 moves), the Castle (keys, locks and levers), the
+Mountains (height: Maxi climbs one step, Mini needs stairs, anyone can jump
+down, crates fall off ledges, a springboard lifts you one level) and the
+Heart, where everything comes together. Areas bigger than the screen get a
+camera that follows the players; online, when the two are far apart, each
+phone follows its own player. When both players
 stand on the hearts of an area they walk over a little bridge into the next
 one. There are no level screens in between.
 

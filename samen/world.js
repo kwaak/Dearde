@@ -1,6 +1,7 @@
 // The world of Samen: zones with their own look, each a chain of areas.
 // Every area is checked by the solver tests: solvable, impossible for either
-// player alone, and roughly harder than the one before.
+// player alone, and roughly harder than the one before. An optional
+// `heights` map gives every tile a level (0-9); see game.js for climbing.
 (function (root) {
   'use strict';
 
@@ -11,6 +12,7 @@
     { id: 'meer', name: 'Het Meer' },
     { id: 'paddo', name: 'Het Paddenstoelenrijk' },
     { id: 'kasteel', name: 'Het Kasteel' },
+    { id: 'berg', name: 'De Bergen' },
     { id: 'hart', name: 'Het Hart' },
   ];
 
@@ -274,6 +276,86 @@
         '#.$u..######.#',
         '#.M..#####EE.#',
         '##############',
+      ],
+    },
+    {
+      zone: 'berg',
+      title: 'Klimmen',
+      tips: [
+        'Jij kunt alleen via een trapje omhoog. Kruip door het muizengat naar de roze knop, dan kan Maxi erdoor.',
+        'Jij bent groot: je klimt zo een stapje omhoog. Ga boven op de blauwe knop staan, dan kan Mini bij de trap.',
+      ],
+      map: [
+        '#############',
+        '#ao.m#..#.E.#',
+        '###..B/../..#',
+        '#M..A..b#.E.#',
+        '#############',
+      ],
+      heights: [
+        '0000000000000',
+        '0000001102220',
+        '0000001112220',
+        '0000001102220',
+        '0000000000000',
+      ],
+    },
+    {
+      zone: 'berg',
+      title: 'Watertoren',
+      tips: [
+        'Wacht tot Maxi een kist het water in laat vallen. Neem dan het trapje en kruip naar de roze knop.',
+        'Klim omhoog en duw de kist van de rand het water in. Boven in de toren is de blauwe knop voor Mini.',
+      ],
+      map: [
+        '############',
+        '#E...#..E..#',
+        '#....#.b...#',
+        '##/#####A###',
+        '##B........#',
+        '#ao........#',
+        '###.....$..#',
+        '#m......~./#',
+        '#M......~..#',
+        '############',
+      ],
+      heights: [
+        '000000000000',
+        '022220222220',
+        '022220222220',
+        '002000002000',
+        '001111111110',
+        '011111111110',
+        '000111111110',
+        '000000000010',
+        '000000000000',
+        '000000000000',
+      ],
+    },
+    {
+      zone: 'berg',
+      title: 'Bergpad',
+      tips: [
+        'Een lange tocht! Kruip onderweg naar de roze knop. Hoger op de berg kom je met trapjes en de springveer.',
+        'Duw de kist van de rand en dan het water in. Verderop zet jij de hendel om, zodat Mini bij haar trapje kan.',
+      ],
+      map: [
+        '#############################',
+        '#.....#####a.o.###..u...#..E#',
+        '#..$..########.###..#...#..E#',
+        '#m.....~.......A....#.j.../.#',
+        '#M.....~.......B....#...#...#',
+        '#......##......#.b.U/...#...#',
+        '#############################',
+      ],
+      heights: [
+        '00000000000000000000111123333',
+        '01111100000000000000111123333',
+        '01111100000000000000011123333',
+        '00000000000000000000011122333',
+        '00000000000000000000011123333',
+        '00000000000000000000111123333',
+        '00000000000000000000111123333',
       ],
     },
     {

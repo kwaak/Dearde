@@ -28,8 +28,8 @@ function reachesHeartAlone(level, seat) {
 
 // A tiny extra area for rule tests. Each gets its own index, because
 // parsed maps are cached per index.
-function scratch(map) {
-  AREAS.push({ zone: 'test', title: 'test', tips: ['', ''], map });
+function scratch(map, heights) {
+  AREAS.push({ zone: 'test', title: 'test', tips: ['', ''], map, heights });
   return { s: loadLevel(AREAS.length - 1) };
 }
 
@@ -153,4 +153,22 @@ test('a P-switch makes the dotted blocks solid for a few moves', () => {
   assert.ok(move(s, 0, 'right'));
   for (let i = 0; i < 8; i++) assert.ok(move(s, 0, 'right'), `step ${i + 1} on the blocks`);
   assert.strictEqual(move(s, 0, 'right'), false, 'time is up');
+});
+
+test('heights: Maxi climbs one step, Mini only takes stairs, anyone jumps down', () => {
+  const { s } = scratch(
+    ['#######', '#m./..#', '#M....#', '#######'],
+    ['0000000', '0001110', '0001200', '0000000'],
+  );
+  assert.ok(move(s, 0, 'right'));
+  assert.ok(move(s, 0, 'right'), 'onto the stairs');
+  assert.ok(move(s, 0, 'right'));
+  s.players[0] = [2, 2];
+  assert.strictEqual(move(s, 0, 'right'), false, 'Mini cannot climb a ledge');
+  s.players[0] = [1, 1];
+  s.players[1] = [2, 2];
+  assert.ok(move(s, 1, 'right'), 'Maxi climbs one step');
+  assert.ok(move(s, 1, 'right'), 'and another');
+  assert.ok(move(s, 1, 'right'), 'jumping down is fine');
+  assert.strictEqual(move(s, 1, 'left'), false, 'two steps up is too high');
 });

@@ -24,6 +24,10 @@
   //   j springboard: bounces you over the next tile, two tiles on
   //   * coin; S star door, opens once every coin of the area is collected
   //   p P-switch: for P_TIME moves the dotted blocks q become a walkway
+  // Height (an optional `heights` map of digits next to the tiles):
+  //   anyone can jump down, Maxi climbs one step up, Mini needs stairs:
+  //   / stairs: Mini can step up onto them from one level lower
+  //   crates only go down or stay level; a springboard lifts you one level
   const P_TIME = 8;
   const DIRS = { up: [-1, 0], down: [1, 0], left: [0, -1], right: [0, 1] };
 
@@ -45,7 +49,9 @@
           return '$mM'.includes(ch) ? '.' : ch;
         }));
       });
-      parsed.set(index, { tiles, boxes, players, pipes, coins });
+      const h = AREAS[index].heights;
+      const heights = tiles.map((row, r) => row.map((_, c) => (h ? Number(h[r][c]) || 0 : 0)));
+      parsed.set(index, { tiles, boxes, players, pipes, coins, heights });
     }
     return parsed.get(index);
   }
@@ -94,6 +100,7 @@
 
   const id = (r, c) => `${r},${c}`;
   const tileOf = (s, r, c) => { const row = base(s.level).tiles[r]; return row ? row[c] : undefined; };
+  const heightOf = (s, r, c) => { const row = base(s.level).heights[r]; return row && row[c] !== undefined ? row[c] : 0; };
   const boxAt = (s, r, c) => s.boxes.findIndex((b) => b && b[0] === r && b[1] === c);
   const playerAt = (s, r, c) => s.players.findIndex((p) => p[0] === r && p[1] === c);
   const occupied = (s, r, c) => boxAt(s, r, c) >= 0 || playerAt(s, r, c) >= 0;
@@ -115,6 +122,14 @@
   const isLever = (t) => t === 'u' || t === 'v';
   const isPipe = (t) => t >= '1' && t <= '4';
   const starOpen = (s) => s.coins.length >= base(s.level).coins;
+
+  // May `who` step from (r, c) to the neighbour (nr, nc), height-wise?
+  function canStep(s, who, r, c, nr, nc) {
+    const dh = heightOf(s, nr, nc) - heightOf(s, r, c);
+    if (dh <= 0) return true;
+    if (dh > 1) return false;
+    return who === 1 || (who === 0 && tileOf(s, nr, nc) === '/');
+  }
 
   // Doors and gates also stay open while something stands in them, so they
   // never close on a player or a crate.
@@ -140,7 +155,7 @@
       if (who === 'box' && t === 'q') return false;
       return doorOpen(s, r, c);
     }
-    if (who === 'box' && (isLever(t) || t === 'k' || t === '*' || t === 'p' || t === 'j' || isPipe(t))) return false;
+    if (who === 'box' && (isLever(t) || t === 'k' || t === '*' || t === 'p' || t === 'j' || t === '/' || isPipe(t))) return false;
     return true;
   }
 
@@ -183,11 +198,14 @@
       }
       let nr = r + d[0];
       let nc = c + d[1];
+      const top = heightOf(s, r, c);
       if (t === 'j') {
-        if (!jumpable(s, nr, nc)) return;
+        // The bounce reaches one level higher than the springboard.
+        if (!jumpable(s, nr, nc) || heightOf(s, nr, nc) > top + 1) return;
         nr += d[0];
         nc += d[1];
-      } else if (t !== '_') {
+        if (heightOf(s, nr, nc) > top + 1) return;
+      } else if (t !== '_' || heightOf(s, nr, nc) !== top) {
         return;
       }
       if (occupied(s, nr, nc) || !walkable(s, nr, nc, seat)) return;
@@ -203,12 +221,13 @@
       if (tileOf(s, r, c) !== '_') return;
       const nr = r + d[0];
       const nc = c + d[1];
+      if (heightOf(s, nr, nc) > heightOf(s, r, c)) return;
       if (tileOf(s, nr, nc) === '~' && !s.filled.includes(id(nr, nc)) && !occupied(s, nr, nc)) {
         s.boxes[i] = null;
         addSorted(s.filled, id(nr, nc));
         return;
       }
-      if (!walkable(s, nr, nc, 'box') || occupied(s, nr, nc)) return;
+      if (!walkable(s, nr, nc, 'box') || occupied(s, nr, nc) || heightOf(s, nr, nc) !== heightOf(s, r, c)) return;
       s.boxes[i] = [nr, nc];
     }
   }
@@ -220,14 +239,15 @@
     const [r, c] = s.players[seat];
     const nr = r + d[0];
     const nc = c + d[1];
-    if (playerAt(s, nr, nc) >= 0) return false;
+    if (playerAt(s, nr, nc) >= 0 || !canStep(s, seat, r, c, nr, nc)) return false;
 
     const box = boxAt(s, nr, nc);
     if (box >= 0) {
       if (seat !== 1 || !walkable(s, nr, nc, seat)) return false;
       const br = nr + d[0];
       const bc = nc + d[1];
-      if (occupied(s, br, bc)) return false;
+      // Crates slide off ledges, but nobody lifts them up one.
+      if (occupied(s, br, bc) || heightOf(s, br, bc) > heightOf(s, nr, nc)) return false;
       if (tileOf(s, br, bc) === '~' && !s.filled.includes(id(br, bc))) {
         s.boxes[box] = null;
         addSorted(s.filled, id(br, bc));
@@ -274,6 +294,7 @@
   //   '1'..'4' pipe             'r' brick (smashed: '.')    'j' springboard
   //   '*' coin (taken: '.')     'S' / 'S+' shut / open star door
   //   'p' P-switch              'q0' / 'q1' dotted block off / solid
+  //   '/' stairs                `heights` holds the level of every tile
   function view(s) {
     const tiles = base(s.level).tiles.map((row, r) => row.map((t, c) => {
       if (t === '~') return s.filled.includes(id(r, c)) ? '=' : '~';
@@ -296,6 +317,7 @@
       zone: area.zone,
       tips: area.tips,
       tiles,
+      heights: base(s.level).heights,
       boxes: s.boxes,
       players: s.players,
       keys: s.keys,

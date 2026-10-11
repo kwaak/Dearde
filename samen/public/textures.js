@@ -204,6 +204,23 @@ const FLOORS = {
     ctx.fill();
     speckle(ctx, s, rand, ['rgba(190,140,80,.2)', 'rgba(255,255,255,.5)'], 60, 0.8, 2);
   },
+  // Alpine flagstones; variant 2 is snow for the high peaks.
+  berg(ctx, s, rand, v) {
+    if (v === 2) {
+      ctx.fillStyle = '#f7fbff';
+      ctx.fillRect(0, 0, s, s);
+      speckle(ctx, s, rand, ['rgba(170,195,230,.35)', '#ffffff'], 50, 2, 8);
+      return;
+    }
+    ctx.fillStyle = '#9fae92';
+    ctx.fillRect(0, 0, s, s);
+    const pts = [[0, 0, s * 0.55, s * 0.5], [s * 0.55, 0, s * 0.45, s * 0.5], [0, s * 0.5, s * 0.4, s * 0.5], [s * 0.4, s * 0.5, s * 0.6, s * 0.5]];
+    for (const [x, y, w, h] of pts) {
+      ctx.fillStyle = shade(v ? '#d4dccb' : '#dde4d5', (rand() - 0.5) * 0.06);
+      ctx.beginPath(); ctx.roundRect(x + 2, y + 2, w - 4, h - 4, 7); ctx.fill();
+    }
+    speckle(ctx, s, rand, ['rgba(110,130,100,.25)', 'rgba(255,255,255,.4)'], 40, 1, 3);
+  },
   hart(ctx, s, rand, v) {
     ctx.fillStyle = '#f6c6d6';
     ctx.fillRect(0, 0, s, s);
@@ -276,6 +293,23 @@ const WALLS = {
     for (let x = 0; x < s; x += 12) {
       ctx.beginPath(); ctx.arc(x + 6, s * 0.2, 6, 0, Math.PI); ctx.fill();
     }
+  },
+  // Grey rock in layers, with a snowy top.
+  berg(ctx, s, rand, top) {
+    if (top) {
+      ctx.fillStyle = '#f4f8ff';
+      ctx.fillRect(0, 0, s, s);
+      speckle(ctx, s, rand, ['#ffffff', '#dbe7f7', '#c9d9ef'], 60, 2, 9);
+      return;
+    }
+    ctx.fillStyle = '#8c8f98';
+    ctx.fillRect(0, 0, s, s);
+    for (let y = 0; y < s; y += 10 + rand() * 12) {
+      ctx.fillStyle = shade('#8c8f98', (rand() - 0.5) * 0.14);
+      ctx.fillRect(0, y, s, 6 + rand() * 8);
+    }
+    speckle(ctx, s, rand, ['#767983', '#a2a5ae', '#6b6e78'], 40, 3, 9);
+    cracks(ctx, s, rand, 'rgba(50,50,60,.35)');
   },
   hart(ctx, s, rand, top) {
     if (top) {

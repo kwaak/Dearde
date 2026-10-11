@@ -20,6 +20,7 @@ const THEMES = {
   grot: { floorA: 0xf0e4d4, floorB: 0xe5d6c2, wall: 0x8a7464, top: 0xa48e7b },
   meer: { floorA: 0xfff3dd, floorB: 0xf7e5c6, wall: 0x4f9fb8, top: 0x72bcd2 },
   paddo: { floorA: 0xfbf0d6, floorB: 0xf7e7c4, wall: 0xc47a3c, top: 0x5fc45a },
+  berg: { floorA: 0xdde4d5, floorB: 0xd4dccb, wall: 0x8c8f98, top: 0xf4f8ff },
   kasteel: { floorA: 0xeeeaf2, floorB: 0xe2dcea, wall: 0x8b8798, top: 0xa9a5b8 },
   hart: { floorA: 0xfff0f4, floorB: 0xfde1ea, wall: 0xc45c8a, top: 0xe07ba8 },
 };
@@ -35,6 +36,7 @@ const WALL_H = 0.55;
 const GAP = 3; // tiles of bridge between two areas
 const STEP_MS = 170;
 const PIPE_TOP = 0.43;
+const STEP_H = 0.5; // one level of height
 
 function heartShape() {
   const s = new THREE.Shape();
@@ -314,7 +316,10 @@ export function createBoard3D(container) {
   const size = (i) => ({ w: AREAS[i].map[0].length, h: AREAS[i].map.length });
   const offsets = [];
   AREAS.forEach((_, i) => { offsets[i] = i ? offsets[i - 1] + size(i - 1).w + GAP : 0; });
-  const toWorld = (level, [r, c]) => new THREE.Vector3(offsets[level] + c, 0, r - (size(level).h - 1) / 2);
+  // How high a tile's floor sits. Stairs sit halfway between two levels.
+  const levelOf = (level, r, c) => { const h = AREAS[level].heights; return h ? Number(h[r][c]) || 0 : 0; };
+  const liftOf = (level, r, c) => STEP_H * (levelOf(level, r, c) - (AREAS[level].map[r][c] === '/' ? 0.5 : 0));
+  const toWorld = (level, [r, c]) => new THREE.Vector3(offsets[level] + c, liftOf(level, r, c), r - (size(level).h - 1) / 2);
 
   const groups = new Map(); // level -> { group, live }
   let live = null;          // dynamic parts of the current area
@@ -351,10 +356,10 @@ export function createBoard3D(container) {
   const cam = { target: new THREE.Vector3(), hw: 6, hh: 6, goal: { target: new THREE.Vector3(), hw: 6, hh: 6 }, aspect: 1 };
 
   // Half width/height on screen of an area seen from the camera direction.
-  function fit(level) {
-    const { w, h } = size(level);
+  function fit(level, w = size(level).w, h = size(level).h) {
+    const top = Math.max(0, ...(AREAS[level].heights || ['0']).join('').split('').map(Number)) * STEP_H;
     let hw = 0, hh = 0;
-    for (const x of [-w / 2, w / 2]) for (const z of [-h / 2, h / 2]) for (const y of [-0.2, 1]) {
+    for (const x of [-w / 2, w / 2]) for (const z of [-h / 2, h / 2]) for (const y of [-0.2, top + 1]) {
       const v = new THREE.Vector3(x, y, z).applyMatrix4(VIEW);
       hw = Math.max(hw, Math.abs(v.x));
       hh = Math.max(hh, Math.abs(v.y));
@@ -382,6 +387,7 @@ export function createBoard3D(container) {
 
     const floorGeo = new THREE.BoxGeometry(0.98, 0.2, 0.98);
     const floorMats = [0, 1].map((v) => texMat(TEX.floorTex(zone, v), { roughness: 0.92 }));
+    const snowMat = zone === 'berg' ? texMat(TEX.floorTex(zone, 2), { roughness: 0.7 }) : null;
     const crackedMat = texMat(TEX.crackedTex(zone), { roughness: 0.95, bumpScale: 3 });
     const wallGeo = new THREE.BoxGeometry(1, WALL_H, 1);
     const side = texMat(TEX.wallTex(zone, false), { roughness: 0.8, bumpScale: 2.5 });
@@ -391,7 +397,17 @@ export function createBoard3D(container) {
     const plankMat = texMat(TEX.plankTex(), { roughness: 0.8, bumpScale: 2 });
     const waterMat = texMat(TEX.waterTex(), shiny({ roughness: 0.1, transparent: true, opacity: 0.9, bumpScale: 0.5, envMapIntensity: 0.7 }));
 
-    const add = (mesh, r, c, y) => { mesh.position.set(c, y, r); group.add(mesh); return mesh; };
+    const lift = (r, c) => liftOf(level, r, c);
+    const add = (mesh, r, c, y) => { mesh.position.set(c, y + lift(r, c), r); group.add(mesh); return mesh; };
+    // Rock under raised tiles, so plateaus read as solid cliffs.
+    const cliff = (r, c, top) => {
+      if (top <= 0.001) return;
+      const rock = new THREE.Mesh(new THREE.BoxGeometry(0.999, top, 0.999), side);
+      rock.position.set(c, top / 2 - 0.2, r);
+      rock.castShadow = true;
+      rock.receiveShadow = true;
+      group.add(rock);
+    };
 
     g.tiles.forEach((row, r) => row.forEach((t, c) => {
       if (t === '#') {
@@ -400,11 +416,28 @@ export function createBoard3D(container) {
         if (!near) return;
         const wall = add(new THREE.Mesh(wallGeo, wallMat), r, c, WALL_H / 2 - 0.2);
         wall.castShadow = true; wall.receiveShadow = true;
+        cliff(r, c, lift(r, c));
+        return;
+      }
+      if (t === '/') {
+        // Three steps climbing away from the lower neighbour.
+        const h = levelOf(level, r, c);
+        const low = [[0, -1], [0, 1], [-1, 0], [1, 0]].find(([dr, dc]) => open(tile(r + dr, c + dc)) && levelOf(level, r + dr, c + dc) === h - 1) || [0, -1];
+        for (let i = 0; i < 3; i++) {
+          const top = STEP_H * (h - 1 + (i + 1) / 3);
+          const off = (1 - i) / 3;
+          const step = new THREE.Mesh(new THREE.BoxGeometry(low[1] ? 0.33 : 0.98, top + 0.2, low[0] ? 0.33 : 0.98), [side, side, floorMats[i % 2], side, side, side]);
+          step.position.set(c + low[1] * off, (top - 0.2) / 2, r + low[0] * off);
+          step.castShadow = true;
+          step.receiveShadow = true;
+          group.add(step);
+        }
         return;
       }
       if (t === 'q0' || t === 'q1') {
         // Dotted outlines over the water that turn into solid blocks.
         add(new THREE.Mesh(new THREE.BoxGeometry(1, 0.12, 1), waterMat), r, c, -0.16);
+        cliff(r, c, lift(r, c) - 0.02);
         const solid = add(new THREE.Mesh(new THREE.BoxGeometry(0.94, 0.2, 0.94), texMat(TEX.pBlockTex(), { roughness: 0.5, transparent: true })), r, c, -0.1);
         solid.receiveShadow = true;
         const outline = add(new THREE.LineSegments(
@@ -417,15 +450,18 @@ export function createBoard3D(container) {
       }
       if (t === '~' || t === '=') {
         const water = add(new THREE.Mesh(new THREE.BoxGeometry(1, 0.12, 1), waterMat), r, c, -0.16);
+        cliff(r, c, lift(r, c) - 0.02);
         const plank = add(new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.2, 0.92), plankMat), r, c, -0.1);
         plank.receiveShadow = true;
         plank.visible = t === '=';
         parts.water.push({ r, c, water, plank });
         return;
       }
-      const floorMat = t === '_' ? iceMat : t === 'x' ? crackedMat : floorMats[(r + c) % 2];
+      const floorMat = t === '_' ? iceMat : t === 'x' ? crackedMat
+        : snowMat && levelOf(level, r, c) >= 3 ? snowMat : floorMats[(r + c) % 2];
       const floor = add(new THREE.Mesh(floorGeo, floorMat), r, c, t === 'x' ? -0.12 : -0.1);
       floor.receiveShadow = true;
+      cliff(r, c, lift(r, c));
 
       if (t === 'o') {
         const along = open(tile(r, c - 1)) || open(tile(r, c + 1)) ? 'x' : 'z';
@@ -437,7 +473,7 @@ export function createBoard3D(container) {
         const plateTop = texMat(TEX.plateTex(COLORS[t]), shiny({ roughness: 0.25, bumpScale: 1, emissive: COLORS[t], emissiveIntensity: 0, envMapIntensity: 0.5 }));
         const plate = add(new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.34, 0.1, 32), [mat(COLORS[t], { roughness: 0.4 }), plateTop, plateTop]), r, c, 0.05);
         plate.receiveShadow = true;
-        parts.plates.push({ mesh: plate, r, c });
+        parts.plates.push({ mesh: plate, r, c, base: lift(r, c) });
       } else if (/^[A-D]\+?$/.test(t)) {
         const color = COLORS[t[0].toLowerCase()];
         add(new THREE.Mesh(new THREE.BoxGeometry(0.94, 0.03, 0.94), mat(color, { transparent: true, opacity: 0.55 })), r, c, 0.015);
@@ -474,7 +510,7 @@ export function createBoard3D(container) {
         parts.levers.push({ stick, r, c, on: t[1] === '1' });
       } else if (t === 'k') {
         const key = add(makeKey(), r, c, 0.4);
-        parts.keys.push({ mesh: key, r, c });
+        parts.keys.push({ mesh: key, r, c, base: lift(r, c) });
       } else if (t === 'K' || t === 'K+') {
         const lock = new THREE.Group();
         const door = new THREE.Mesh(new THREE.BoxGeometry(0.9, WALL_H + 0.1, 0.9), texMat(TEX.lockDoorTex(), { roughness: 0.75, bumpScale: 2.5 }));
@@ -486,7 +522,7 @@ export function createBoard3D(container) {
         shackle.position.set(0, 0.44, 0.47);
         lock.add(door, padlock, shackle);
         add(lock, r, c, 0);
-        parts.locks.push({ mesh: lock, r, c, open: t === 'K+' });
+        parts.locks.push({ mesh: lock, r, c, open: t === 'K+', base: lift(r, c) });
       } else if (/^[1-4]$/.test(t)) {
         add(makePipe(COLORS.pipes[t]), r, c, 0);
       } else if (t === 'r') {
@@ -499,7 +535,7 @@ export function createBoard3D(container) {
         parts.springs.push({ obj: spring, r, c, at: 0 });
       } else if (t === '*') {
         const coin = add(makeCoin(), r, c, 0.4);
-        parts.coins.push({ mesh: coin, r, c, taken: 0 });
+        parts.coins.push({ mesh: coin, r, c, taken: 0, base: lift(r, c) });
       } else if (t === 'S' || t === 'S+') {
         const door = add(new THREE.Mesh(new THREE.BoxGeometry(0.9, WALL_H + 0.1, 0.9), texMat(TEX.starDoorTex(), shiny({ roughness: 0.3, bumpScale: 1.5, envMapIntensity: 0.5 }))), r, c, (WALL_H + 0.1) / 2);
         door.castShadow = true;
@@ -525,7 +561,7 @@ export function createBoard3D(container) {
         heart.castShadow = true;
         const glow = add(new THREE.Mesh(new THREE.CircleGeometry(0.36, 32), new THREE.MeshBasicMaterial({ color: 0xffb3c1, transparent: true, opacity: 0.7 })), r, c, 0.005);
         glow.rotation.x = -Math.PI / 2;
-        parts.hearts.push({ mesh: heart, x: offsets[level] + c, z: r - (g.tiles.length - 1) / 2 });
+        parts.hearts.push({ mesh: heart, x: offsets[level] + c, z: r - (g.tiles.length - 1) / 2, base: lift(r, c) });
       }
     }));
 
@@ -542,7 +578,7 @@ export function createBoard3D(container) {
 
     g.boxes.forEach((b) => {
       const crate = makeCrate();
-      if (b) crate.position.set(b[1], 0, b[0]); else crate.visible = false;
+      if (b) crate.position.set(b[1], lift(b[0], b[1]), b[0]); else crate.visible = false;
       group.add(crate);
       parts.crates.push({ obj: crate, path: [crate.position.clone()], t0: 0, dur: 1 });
     });
@@ -566,11 +602,34 @@ export function createBoard3D(container) {
     const { w, h } = size(g.level);
     cam.goal.target.set(offsets[g.level] + (w - 1) / 2, 0, 0);
     Object.assign(cam.goal, fit(g.level));
+    // Areas bigger than the screen get a camera that follows the players.
+    cam.full = fit(g.level);
+    cam.window = fit(g.level, Math.min(w, 12), Math.min(h, 10));
+    cam.follow = cam.full.hw > cam.window.hw * 1.15 || cam.full.hh > cam.window.hh * 1.15;
+    cam.bounds = { x0: offsets[g.level] + 2, x1: offsets[g.level] + w - 3, z: Math.max(0, (h - 1) / 2 - 2) };
+    sun.shadow.mapSize.set(cam.follow ? 2048 : 1024, cam.follow ? 2048 : 1024);
+    if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; }
     sun.position.set(cam.goal.target.x - w * 0.3, 10, -h * 0.2);
     sun.target.position.copy(cam.goal.target);
     const half = Math.max(w, h) / 2 + 2;
     Object.assign(sun.shadow.camera, { left: -half, right: half, top: half, bottom: -half });
     sun.shadow.camera.updateProjectionMatrix();
+  }
+
+  // Keeps both players in view where possible. Online, when they are far
+  // apart, each phone follows its own player.
+  function followPlayers(level) {
+    if (!cam.follow) return;
+    const pts = players.map((p) => p.grid && toWorld(level, p.grid));
+    if (!pts[0] || !pts[1]) return;
+    const [a, b] = pts.map((v) => v.clone().applyMatrix4(VIEW));
+    const need = { hw: Math.abs(a.x - b.x) / 2 + 2.5, hh: Math.abs(a.y - b.y) / 2 + 2.2 };
+    const both = you < 0 || (need.hw <= cam.window.hw * 1.5 && need.hh <= cam.window.hh * 1.5);
+    const focus = both ? pts[0].clone().add(pts[1]).multiplyScalar(0.5) : pts[you].clone();
+    const clamp = (v, lo, hi) => Math.min(Math.max(v, Math.min(lo, hi)), Math.max(lo, hi));
+    cam.goal.target.set(clamp(focus.x, cam.bounds.x0, cam.bounds.x1), 0, clamp(focus.z, -cam.bounds.z, cam.bounds.z));
+    cam.goal.hw = both ? Math.min(cam.full.hw, Math.max(cam.window.hw, need.hw)) : cam.window.hw;
+    cam.goal.hh = both ? Math.min(cam.full.hh, Math.max(cam.window.hh, need.hh)) : cam.window.hh;
   }
 
   function walk(m, points, dur, hop) {
@@ -605,6 +664,7 @@ export function createBoard3D(container) {
           p.obj.position.copy(toWorld(g.level, g.players[seat]));
           walk(p, [], 1, 0);
         });
+        followPlayers(g.level);
         cam.target.copy(cam.goal.target);
         cam.hw = cam.goal.hw;
         cam.hh = cam.goal.hh;
@@ -618,7 +678,7 @@ export function createBoard3D(container) {
         p.grid = g.players[seat].slice();
         const [r, c] = g.players[seat];
         const tile = (rr, cc) => g.tiles[rr] && g.tiles[rr][cc];
-        if (/^[1-4]$/.test(tile(r, c))) target.y = PIPE_TOP; // stand on top of a pipe
+        if (/^[1-4]$/.test(tile(r, c))) target.y += PIPE_TOP; // stand on top of a pipe
         if (p.path[p.path.length - 1].distanceTo(target) <= 1e-6) return;
         // Came out of a warp pipe: dive into the other one, pop out here.
         if (from && /^[1-4]$/.test(tile(r, c))) {
@@ -657,7 +717,7 @@ export function createBoard3D(container) {
       const crate = parts.crates[i];
       if (!crate) return;
       if (b) {
-        const target = new THREE.Vector3(b[1], 0, b[0]);
+        const target = new THREE.Vector3(b[1], liftOf(g.level, b[0], b[1]), b[0]);
         crate.obj.visible = true;
         if (crate.path[crate.path.length - 1].distanceTo(target) > 1e-6) {
           walk(crate, [target], STEP_MS * Math.max(1, crate.obj.position.distanceTo(target)) ** 0.7, 0);
@@ -667,7 +727,8 @@ export function createBoard3D(container) {
         const spot = parts.water.find((w) => w.sinkAt && performance.now() - w.sinkAt < 50 && !w.taken);
         if (spot) {
           spot.taken = true;
-          walk(crate, [new THREE.Vector3(spot.c, 0, spot.r), new THREE.Vector3(spot.c, -0.9, spot.r)], 420, 0);
+          const y = liftOf(g.level, spot.r, spot.c);
+          walk(crate, [new THREE.Vector3(spot.c, y, spot.r), new THREE.Vector3(spot.c, y - 0.9, spot.r)], 420, 0);
         }
         crate.sinking = true;
         setTimeout(() => { crate.obj.visible = false; }, 420);
@@ -738,7 +799,7 @@ export function createBoard3D(container) {
     hearts.forEach((h, i) => {
       const seat = players.findIndex((p) => p.obj.visible && Math.abs(p.obj.position.x - h.x) < 0.3 && Math.abs(p.obj.position.z - h.z) < 0.3);
       const p = players[seat];
-      const y = p ? p.obj.position.y + HEAD[seat] * p.obj.scale.y + 0.12 + Math.sin(now / 300 + i) * 0.03 : 0.48 + Math.sin(now / 400 + i) * 0.05;
+      const y = p ? p.obj.position.y + HEAD[seat] * p.obj.scale.y + 0.12 + Math.sin(now / 300 + i) * 0.03 : h.base + 0.48 + Math.sin(now / 400 + i) * 0.05;
       const scale = p ? 0.5 * p.obj.scale.y : 0.78;
       h.mesh.position.y += (y - h.mesh.position.y) * 0.25;
       h.mesh.scale.setScalar(h.mesh.scale.x + (scale - h.mesh.scale.x) * 0.25);
@@ -787,17 +848,17 @@ export function createBoard3D(container) {
     const obj = m.obj;
     if (t < 160) {
       obj.position.lerpVectors(obj.position, a, 0.5);
-      obj.position.y = PIPE_TOP;
+      obj.position.y = a.y + PIPE_TOP;
     } else if (t < 420) {
       const k = (t - 160) / 260;
-      obj.position.set(a.x, PIPE_TOP - k * 0.9, a.z);
+      obj.position.set(a.x, a.y + PIPE_TOP - k * 0.9, a.z);
       obj.scale.setScalar(1 - k * 0.4);
     } else if (t < 560) {
       obj.visible = false;
     } else if (t < 860) {
       const k = (t - 560) / 300;
       obj.visible = true;
-      obj.position.set(b.x, PIPE_TOP - 0.9 + k * 0.9 + Math.sin(k * Math.PI) * 0.35, b.z);
+      obj.position.set(b.x, b.y - 0.9 + k * 0.9 + Math.sin(k * Math.PI) * 0.35, b.z);
       obj.scale.setScalar(0.6 + k * 0.4);
     } else {
       obj.scale.setScalar(1);
@@ -869,14 +930,14 @@ export function createBoard3D(container) {
           d.mesh.position.y += (target - d.mesh.position.y) * 0.2;
         }
         for (const p of live.plates) {
-          p.mesh.position.y += ((p.pressed ? 0.01 : 0.05) - p.mesh.position.y) * 0.3;
+          p.mesh.position.y += (p.base + (p.pressed ? 0.01 : 0.05) - p.mesh.position.y) * 0.3;
           p.mesh.material[1].emissiveIntensity = p.pressed ? 0.45 : 0;
         }
         for (const t of live.tunnels) t.mesh.material.opacity = t.inside ? 0.35 : 1;
         const ripple = TEX.waterTex().map;
         ripple.offset.set(now / 9000, Math.sin(now / 2600) * 0.04);
         for (const l of live.locks) {
-          l.mesh.position.y += ((l.open ? -WALL_H - 0.2 : 0) - l.mesh.position.y) * 0.15;
+          l.mesh.position.y += (l.base + (l.open ? -WALL_H - 0.2 : 0) - l.mesh.position.y) * 0.15;
         }
         for (const l of live.levers) {
           const target = l.on ? 0.6 : -0.6;
@@ -891,12 +952,12 @@ export function createBoard3D(container) {
         live.coins.forEach((k, i) => {
           if (k.taken) {
             const t = (now - k.taken) / 450;
-            k.mesh.position.y = 0.4 + t * 1.2;
+            k.mesh.position.y = k.base + 0.4 + t * 1.2;
             k.mesh.rotation.y += 0.5;
             k.mesh.visible = t < 1;
           } else {
             k.mesh.rotation.y = now / 400 + i;
-            k.mesh.position.y = 0.4 + Math.sin(now / 350 + i) * 0.05;
+            k.mesh.position.y = k.base + 0.4 + Math.sin(now / 350 + i) * 0.05;
           }
         });
         for (const sp of live.springs) {
@@ -913,7 +974,7 @@ export function createBoard3D(container) {
           q.solid.material.opacity = blink ? 0.45 : 1;
           q.outline.visible = !q.on;
         }
-        live.keys.forEach((k, i) => { k.mesh.rotation.y = now / 500 + i; k.mesh.position.y = 0.4 + Math.sin(now / 350 + i) * 0.05; });
+        live.keys.forEach((k, i) => { k.mesh.rotation.y = now / 500 + i; k.mesh.position.y = k.base + 0.4 + Math.sin(now / 350 + i) * 0.05; });
       }
       for (const parts of [live, prevParts]) if (parts) animateHearts(parts.hearts, now);
       const mine = players[you];
@@ -921,7 +982,8 @@ export function createBoard3D(container) {
       marker.visible = !!mine && mine.obj.visible && !mine.warp;
       if (mine) marker.position.set(mine.obj.position.x, mine.obj.position.y + HEAD[you] + 0.5 + Math.sin(now / 250) * 0.06, mine.obj.position.z);
 
-      // Glide the camera towards the current area.
+      // Glide the camera towards the current area (or the players in it).
+      followPlayers(current);
       cam.target.lerp(cam.goal.target, 0.06);
       cam.hw += (cam.goal.hw - cam.hw) * 0.06;
       cam.hh += (cam.goal.hh - cam.hh) * 0.06;
