@@ -7,3 +7,9 @@ services:
       # Public by default so the game works straight away on http://<vps>:8095.
       # Behind a host nginx reverse proxy, set GAME_BIND=127.0.0.1 in .env.
       - "${GAME_BIND:-0.0.0.0}:${GAME_PORT:-8095}:8080"
+    volumes:
+      # Saved games, so players can continue later and after redeploys.
+      - samen_data:/data
+
+volumes:
+  samen_data:

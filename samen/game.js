@@ -1,272 +1,239 @@
-// Samen: a tiny co-op puzzle game for two players, inspired by It Takes Two.
-// Mini (seat 0) is small and fits through tunnels; Maxi (seat 1) is strong
-// and pushes crates. Plates open their door while something stands on them.
+// Samen: a co-op puzzle world for two players, inspired by It Takes Two.
+// Mini (seat 0) is small: fits through mouse holes and over cracked floor.
+// Maxi (seat 1) is strong: pushes crates (also into water, as a bridge).
+// The world (world.js) is a chain of areas; both players standing on the
+// hearts of an area solves it and leads on to the next one.
 // Shared by the server (require) and the browser (window.Samen).
 (function (root) {
   'use strict';
 
-  // # wall  . floor  o tunnel (Mini only)  $ crate  a-d plate  A-D door
-  // E exit  m Mini start  M Maxi start
-  const LEVELS = [
-    {
-      title: 'Help elkaar',
-      tips: [
-        'Stap op de blauwe knop. Dan gaat de blauwe deur open voor Maxi.',
-        'Loop door de blauwe deur en stap op de roze knop. Dan kan Mini eruit.',
-      ],
-      map: [
-        '#########',
-        '#m..#..M#',
-        '#.b.#...#',
-        '##A###B##',
-        '#..a....#',
-        '#E.....E#',
-        '#########',
-      ],
-    },
-    {
-      title: 'Klein en sterk',
-      tips: [
-        'Kruip door het muizengat en stap op de blauwe knop voor Maxi.',
-        'Duw de kist op de roze knop. Dan blijft de roze deur open.',
-      ],
-      map: [
-        '############',
-        '#m.o..b#M..#',
-        '#..#...B.$.#',
-        '####...#.a.#',
-        '#E..A..#...#',
-        '#E..########',
-        '############',
-      ],
-    },
-    {
-      title: 'Vertrouwen',
-      tips: [
-        'Kruip door het muizengat en blijf op de blauwe knop staan.',
-        'Duw de kist door de blauwe deur en op de roze knop.',
-      ],
-      map: [
-        '############',
-        '#M...#.....#',
-        '#..$.B.....#',
-        '#....#..a..#',
-        '######.....#',
-        '#m..o..b...#',
-        '#...#####A##',
-        '######E...E#',
-        '############',
-      ],
-    },
-    {
-      title: 'Om de beurt',
-      tips: [
-        'Jullie gaan om de beurt. Stap op de paarse knop, en later op de groene.',
-        'Als je erlangs bent: stap op de roze knop, en later op de blauwe.',
-      ],
-      map: [
-        '##############',
-        '#m.c.A.d.B..E#',
-        '##############',
-        '#M...C.a.D.bE#',
-        '##############',
-      ],
-    },
-    {
-      title: 'Estafette',
-      tips: [
-        'Stap op de blauwe knop, zodat Maxi eruit kan.',
-        'Stap op de roze knop voor Mini. Duw daarna de kist op de paarse knop.',
-      ],
-      map: [
-        '###########',
-        '#m..#.....#',
-        '#.b.A..a..#',
-        '#####.$...#',
-        '#M..B.....#',
-        '#...#.c...#',
-        '#####C#####',
-        '#E.......E#',
-        '###########',
-      ],
-    },
-    {
-      title: 'Doolhof',
-      tips: [
-        'Zoek de weg door de muizengaten naar de roze knop.',
-        'Duw de kist op de blauwe knop: eerst opzij, dan omhoog.',
-      ],
-      map: [
-        '#############',
-        '#M..A..b#...#',
-        '#...#.$.B.E.#',
-        '#####...#.E.#',
-        '#m.o.##.#...#',
-        '#.#####.#####',
-        '#.o..a..#####',
-        '#############',
-      ],
-    },
-    {
-      title: 'Kistenkamer',
-      tips: [
-        'Wacht tot Maxi je deuren openduwt. Stap dan op de paarse knop.',
-        'Duw de kisten op de roze en de blauwe knop.',
-      ],
-      map: [
-        '#############',
-        '#M.....#....#',
-        '#..$.$.C.c..#',
-        '#a.....#..E.#',
-        '#.....b#..E.#',
-        '#########B###',
-        '#m....A.....#',
-        '#############',
-      ],
-    },
-    {
-      title: 'Samen sterk',
-      tips: [
-        'Blijf op de blauwe knop staan tot Maxi met de kist door de deur is.',
-        'Duw een kist door de blauwe deur. Er moeten kisten op de paarse én de roze knop.',
-      ],
-      map: [
-        '#############',
-        '#M..#.......#',
-        '#.$.B..$..a.#',
-        '#...#..c....#',
-        '#####C####A##',
-        '#m.b.....#E.#',
-        '#........#E.#',
-        '#############',
-      ],
-    },
-    {
-      title: 'Twee kisten',
-      tips: [
-        'Stap op een blauwe knop, zodat Maxi met een kist naar beneden kan.',
-        'Duw een kist door de blauwe deur op de andere blauwe knop. De tweede kist moet op de roze knop.',
-      ],
-      map: [
-        '############',
-        '#M.....#...#',
-        '#..$.$.A..E#',
-        '#...a..#..E#',
-        '###B########',
-        '#b.........#',
-        '#..b.....m.#',
-        '############',
-      ],
-    },
-    {
-      title: 'Finale',
-      tips: [
-        'Kruip naar de blauwe knop. Daarna mag je door de roze deur.',
-        'Duw de kist naar beneden, stap op de roze knop voor Mini en duw de kist op de paarse knop.',
-      ],
-      map: [
-        '##############',
-        '#m..o..#M....#',
-        '#..#.b.#..$..#',
-        '##A#######B###',
-        '#....a.......#',
-        '#......c.....#',
-        '########C#####',
-        '#######E...E.#',
-        '##############',
-      ],
-    },
-  ];
+  const WORLD = typeof module !== 'undefined' && module.exports ? require('./world') : root.SamenWorld;
+  const AREAS = WORLD.AREAS;
 
+  // Map legend:
+  //   # wall   . floor   E heart          m / M  Mini / Maxi start
+  //   o mouse hole (Mini only)            x cracked floor (Mini only)
+  //   $ crate (Maxi pushes)               ~ water (a crate pushed in fills it)
+  //   _ ice: whatever enters slides on until something stops it
+  //   a-d button: opens door A-D while a player or crate stands on it
+  //   u v lever: stepping on it flips gate U / V open or shut
+  //   k key: picked up by whoever steps on it; K lock: opened with a key
   const DIRS = { up: [-1, 0], down: [1, 0], left: [0, -1], right: [0, 1] };
 
-  function loadLevel(index) {
-    const map = LEVELS[index].map;
-    const tiles = [];
-    const boxes = [];
-    const players = [null, null];
-    map.forEach((line, r) => {
-      const row = [];
-      [...line].forEach((ch, c) => {
-        if (ch === '$') boxes.push([r, c]);
-        if (ch === 'm') players[0] = [r, c];
-        if (ch === 'M') players[1] = [r, c];
-        row.push('$mM'.includes(ch) ? '.' : ch);
+  const parsed = new Map();
+  function base(index) {
+    if (!parsed.has(index)) {
+      const tiles = [];
+      const boxes = [];
+      const players = [null, null];
+      AREAS[index].map.forEach((line, r) => {
+        tiles.push([...line].map((ch, c) => {
+          if (ch === '$') boxes.push([r, c]);
+          if (ch === 'm') players[0] = [r, c];
+          if (ch === 'M') players[1] = [r, c];
+          return '$mM'.includes(ch) ? '.' : ch;
+        }));
       });
-      tiles.push(row);
-    });
-    return { level: index, tiles, boxes, players, moves: 0, solved: false };
+      parsed.set(index, { tiles, boxes, players });
+    }
+    return parsed.get(index);
   }
 
-  const same = (a, b) => a[0] === b[0] && a[1] === b[1];
-  const boxAt = (s, r, c) => s.boxes.findIndex((b) => b[0] === r && b[1] === c);
+  function loadLevel(index) {
+    const b = base(index);
+    return {
+      level: index,
+      boxes: b.boxes.map((p) => p.slice()), // null once sunk into water
+      players: b.players.map((p) => p.slice()),
+      filled: [],      // "r,c" of water tiles filled with a crate
+      levers: {},      // lever letter -> true when its gate is open
+      keys: [0, 0],    // keys held per seat
+      taken: [],       // "r,c" of picked-up keys
+      unlocked: [],    // "r,c" of opened locks
+      moves: 0,
+      solved: false,
+    };
+  }
+
+  function cloneState(s) {
+    return {
+      ...s,
+      boxes: s.boxes.map((p) => p && p.slice()),
+      players: s.players.map((p) => p.slice()),
+      filled: s.filled.slice(),
+      levers: { ...s.levers },
+      keys: s.keys.slice(),
+      taken: s.taken.slice(),
+      unlocked: s.unlocked.slice(),
+    };
+  }
+
+  // Everything that matters for the puzzle, in canonical form.
+  function stateKey(s) {
+    return JSON.stringify([
+      s.players, s.boxes.filter(Boolean).map(String).sort(), s.filled, s.keys, s.taken, s.unlocked,
+      Object.keys(s.levers).filter((l) => s.levers[l]).sort(),
+    ]);
+  }
+
+  const id = (r, c) => `${r},${c}`;
+  const tileOf = (s, r, c) => { const row = base(s.level).tiles[r]; return row ? row[c] : undefined; };
+  const boxAt = (s, r, c) => s.boxes.findIndex((b) => b && b[0] === r && b[1] === c);
   const playerAt = (s, r, c) => s.players.findIndex((p) => p[0] === r && p[1] === c);
   const occupied = (s, r, c) => boxAt(s, r, c) >= 0 || playerAt(s, r, c) >= 0;
+  const addSorted = (list, v) => { list.push(v); list.sort(); };
 
   function platePressed(s, letter) {
-    for (let r = 0; r < s.tiles.length; r++) {
-      for (let c = 0; c < s.tiles[r].length; c++) {
-        if (s.tiles[r][c] === letter && occupied(s, r, c)) return true;
+    const tiles = base(s.level).tiles;
+    for (let r = 0; r < tiles.length; r++) {
+      for (let c = 0; c < tiles[r].length; c++) {
+        if (tiles[r][c] === letter && occupied(s, r, c)) return true;
       }
     }
     return false;
   }
 
-  // A door also stays open while something stands in the doorway, so it
-  // never closes on a player or a crate.
+  const isDoor = (t) => t >= 'A' && t <= 'D';
+  const isPlate = (t) => t >= 'a' && t <= 'd';
+  const isGate = (t) => t === 'U' || t === 'V';
+  const isLever = (t) => t === 'u' || t === 'v';
+
+  // Doors and gates also stay open while something stands in them, so they
+  // never close on a player or a crate.
   function doorOpen(s, r, c) {
-    return platePressed(s, s.tiles[r][c].toLowerCase()) || occupied(s, r, c);
-  }
-
-  function isDoor(t) { return t >= 'A' && t <= 'D'; }
-
-  function passable(s, r, c, seat, forBox) {
-    const t = s.tiles[r] && s.tiles[r][c];
-    if (!t || t === '#') return false;
-    if (t === 'o') return !forBox && seat === 0;
-    if (isDoor(t)) return doorOpen(s, r, c);
+    const t = tileOf(s, r, c);
+    if (occupied(s, r, c)) return true;
+    if (isDoor(t)) return platePressed(s, t.toLowerCase());
+    if (isGate(t)) return !!s.levers[t.toLowerCase()];
     return true;
   }
 
-  // Moves `seat` one step; returns true when something changed.
+  // Can `who` (seat 0/1, or 'box') stand on (r, c), ignoring what is there?
+  function walkable(s, r, c, who) {
+    const t = tileOf(s, r, c);
+    if (!t || t === '#') return false;
+    if (t === 'o' || t === 'x') return who === 0;
+    if (t === '~') return s.filled.includes(id(r, c));
+    if (t === 'K') return s.unlocked.includes(id(r, c));
+    if (isDoor(t) || isGate(t)) return doorOpen(s, r, c);
+    if (who === 'box' && (isLever(t) || t === 'k')) return false;
+    return true;
+  }
+
+  function enter(s, seat, r, c) {
+    const t = tileOf(s, r, c);
+    if (t === 'k' && !s.taken.includes(id(r, c))) {
+      addSorted(s.taken, id(r, c));
+      s.keys[seat] += 1;
+    } else if (isLever(t)) {
+      s.levers[t] = !s.levers[t];
+    }
+  }
+
+  // Slides a crate that sits on ice further along `d` until it stops.
+  function slideBox(s, i, d) {
+    for (;;) {
+      const [r, c] = s.boxes[i];
+      if (tileOf(s, r, c) !== '_') return;
+      const nr = r + d[0];
+      const nc = c + d[1];
+      if (tileOf(s, nr, nc) === '~' && !s.filled.includes(id(nr, nc)) && !occupied(s, nr, nc)) {
+        s.boxes[i] = null;
+        addSorted(s.filled, id(nr, nc));
+        return;
+      }
+      if (!walkable(s, nr, nc, 'box') || occupied(s, nr, nc)) return;
+      s.boxes[i] = [nr, nc];
+    }
+  }
+
+  // Moves `seat` one step (then slides on ice); true when something changed.
   function move(s, seat, dir) {
     const d = DIRS[dir];
     if (!d || s.solved) return false;
     const [r, c] = s.players[seat];
     const nr = r + d[0];
     const nc = c + d[1];
-    if (!passable(s, nr, nc, seat, false) || playerAt(s, nr, nc) >= 0) return false;
+    if (playerAt(s, nr, nc) >= 0) return false;
+
     const box = boxAt(s, nr, nc);
     if (box >= 0) {
-      if (seat !== 1) return false;
+      if (seat !== 1 || !walkable(s, nr, nc, seat)) return false;
       const br = nr + d[0];
       const bc = nc + d[1];
-      if (!passable(s, br, bc, seat, true) || occupied(s, br, bc)) return false;
-      s.boxes[box] = [br, bc];
+      if (occupied(s, br, bc)) return false;
+      if (tileOf(s, br, bc) === '~' && !s.filled.includes(id(br, bc))) {
+        s.boxes[box] = null;
+        addSorted(s.filled, id(br, bc));
+      } else if (walkable(s, br, bc, 'box')) {
+        s.boxes[box] = [br, bc];
+        slideBox(s, box, d);
+      } else {
+        return false;
+      }
+    } else if (tileOf(s, nr, nc) === 'K' && !s.unlocked.includes(id(nr, nc))) {
+      if (s.keys[seat] < 1) return false;
+      s.keys[seat] -= 1;
+      addSorted(s.unlocked, id(nr, nc));
+    } else if (!walkable(s, nr, nc, seat)) {
+      return false;
     }
+
     s.players[seat] = [nr, nc];
+    enter(s, seat, nr, nc);
+    // On ice, keep sliding until something is in the way. A partner makes a
+    // perfect stopper.
+    for (;;) {
+      const [pr, pc] = s.players[seat];
+      if (tileOf(s, pr, pc) !== '_') break;
+      const sr = pr + d[0];
+      const sc = pc + d[1];
+      if (occupied(s, sr, sc) || !walkable(s, sr, sc, seat)) break;
+      s.players[seat] = [sr, sc];
+      enter(s, seat, sr, sc);
+    }
     s.moves += 1;
-    s.solved = s.players.every(([pr, pc]) => s.tiles[pr][pc] === 'E');
+    s.solved = s.players.every(([pr, pc]) => tileOf(s, pr, pc) === 'E');
     return true;
   }
 
-  // Read-only view the client renders: static tiles plus open/closed doors.
+  // Read-only view for the renderers. Tile codes:
+  //   '#' '.' 'o' 'x' '_' 'E'   '~' water / '=' water filled with a crate
+  //   'a'..'d' button           'A'..'D' shut door, 'A+'.. open door
+  //   'u0'/'u1' lever           'U0'/'U1' shut / open gate
+  //   'k' key (gone: '.')       'K' lock, 'K+' opened lock
   function view(s) {
+    const tiles = base(s.level).tiles.map((row, r) => row.map((t, c) => {
+      if (t === '~') return s.filled.includes(id(r, c)) ? '=' : '~';
+      if (t === 'k') return s.taken.includes(id(r, c)) ? '.' : 'k';
+      if (t === 'K') return s.unlocked.includes(id(r, c)) ? 'K+' : 'K';
+      if (isDoor(t)) return doorOpen(s, r, c) ? t + '+' : t;
+      if (isGate(t)) return t + (doorOpen(s, r, c) ? '1' : '0');
+      if (isLever(t)) return t + (s.levers[t] ? '1' : '0');
+      return t;
+    }));
+    const area = AREAS[s.level];
     return {
       level: s.level,
-      levels: LEVELS.length,
-      title: LEVELS[s.level].title,
-      tips: LEVELS[s.level].tips,
-      tiles: s.tiles.map((row, r) => row.map((t, c) =>
-        (isDoor(t) && doorOpen(s, r, c) ? t.toLowerCase() + '_open' : t))),
+      levels: AREAS.length,
+      title: area.title,
+      zone: area.zone,
+      tips: area.tips,
+      tiles,
       boxes: s.boxes,
       players: s.players,
+      keys: s.keys,
       moves: s.moves,
       solved: s.solved,
     };
   }
 
-  const api = { LEVELS, DIRS, loadLevel, move, view, same };
+  // Static look of any area (used to draw the neighbouring areas).
+  function preview(index) {
+    return view(loadLevel(index));
+  }
+
+  const api = { AREAS, ZONES: WORLD.ZONES, LEVELS: AREAS, DIRS, loadLevel, cloneState, stateKey, move, view, preview };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Samen = api;
 })(this);

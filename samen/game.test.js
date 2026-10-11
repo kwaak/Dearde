@@ -1,69 +1,110 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert');
-const { LEVELS, loadLevel, move } = require('./game');
+const { AREAS, ZONES, loadLevel, cloneState, stateKey, move } = require('./game');
+const { solve } = require('./solver');
 
-const key = (s) => JSON.stringify([s.players, [...s.boxes].map(String).sort()]);
-const clone = (s) => ({ ...s, players: s.players.map((p) => p.slice()), boxes: s.boxes.map((b) => b.slice()) });
-
-// Breadth-first search over both players' moves; returns the shortest
-// solution length, or -1. Optionally freeze one seat to prove co-op is needed.
-function solve(level, onlySeat = null) {
+// Can `seat` reach a heart while the partner stays at the start?
+function reachesHeartAlone(level, seat) {
   const start = loadLevel(level);
-  const seen = new Set([key(start)]);
+  const seen = new Set([stateKey(start)]);
   let frontier = [start];
-  for (let depth = 1; frontier.length && depth < 200; depth++) {
+  while (frontier.length) {
     const next = [];
     for (const s of frontier) {
-      for (const seat of [0, 1]) {
-        if (onlySeat !== null && seat !== onlySeat) continue;
-        for (const dir of ['up', 'down', 'left', 'right']) {
-          const n = clone(s);
-          if (!move(n, seat, dir)) continue;
-          if (n.solved) return depth;
-          const k = key(n);
-          if (!seen.has(k)) { seen.add(k); next.push(n); }
-        }
+      for (const dir of ['up', 'down', 'left', 'right']) {
+        const n = cloneState(s);
+        if (!move(n, seat, dir)) continue;
+        const [r, c] = n.players[seat];
+        if (AREAS[level].map[r][c] === 'E') return true;
+        const k = stateKey(n);
+        if (!seen.has(k)) { seen.add(k); next.push(n); }
       }
     }
     frontier = next;
   }
-  return -1;
+  return false;
 }
 
-for (let i = 0; i < LEVELS.length; i++) {
-  test(`level ${i + 1} "${LEVELS[i].title}" is solvable and needs both players`, () => {
-    const steps = solve(i);
-    assert.ok(steps > 0, 'unsolvable');
-    // Neither player can even leave their start area alone: freezing the
-    // other one must make the level unsolvable.
-    assert.strictEqual(solve(i, 0), -1, 'Mini can solve it alone');
-    assert.strictEqual(solve(i, 1), -1, 'Maxi can solve it alone');
-    console.log(`level ${i + 1}: ${steps} moves minimum`);
+// A tiny extra area for rule tests. Each gets its own index, because
+// parsed maps are cached per index.
+function scratch(map) {
+  AREAS.push({ zone: 'test', title: 'test', tips: ['', ''], map });
+  return { s: loadLevel(AREAS.length - 1) };
+}
+
+const steps = [];
+for (let i = 0; i < AREAS.length; i++) {
+  test(`area ${i + 1} "${AREAS[i].title}" is solvable and needs both players`, () => {
+    const path = solve(i);
+    assert.ok(path, 'unsolvable');
+    steps[i] = path.length;
+    // The very first area is a warm-up where Mini may walk to a heart.
+    if (i > 0) assert.strictEqual(reachesHeartAlone(i, 0), false, 'Mini reaches a heart alone');
+    assert.strictEqual(reachesHeartAlone(i, 1), false, 'Maxi reaches a heart alone');
   });
 }
 
-test('Mini fits through tunnels, Maxi does not; only Maxi pushes crates', () => {
-  const s = loadLevel(1); // Mini at (1,1), tunnel at (1,3)
-  assert.ok(move(s, 0, 'right'));
-  assert.ok(move(s, 0, 'right')); // into the tunnel
-  const t = loadLevel(1);
-  t.players[1] = [1, 2];
-  assert.strictEqual(move(t, 1, 'right'), false);
-
-  const b = loadLevel(1); // crate at (2,9)
-  b.players[1] = [1, 9];
-  assert.ok(move(b, 1, 'down'));
-  assert.deepStrictEqual(b.boxes[0], [3, 9]);
-  b.players[0] = [2, 9];
-  b.players[1] = [1, 8];
-  assert.strictEqual(move(b, 0, 'down'), false); // Mini can't push
+test('every zone peaks harder than the zone before it', () => {
+  let previous = 0;
+  for (const zone of ZONES) {
+    const peak = Math.max(...AREAS.map((a, i) => (a.zone === zone.id ? steps[i] : 0)));
+    assert.ok(peak > previous, `${zone.name} peaks at ${peak}, not above ${previous}`);
+    previous = peak;
+  }
 });
 
-test('doors open only while their plate is pressed', () => {
-  const s = loadLevel(0); // Maxi above door B, plate b in Mini's room
-  s.players[1] = [2, 6];
+test('ice: you slide until something stops you, a partner included', () => {
+  const { s } = scratch(['#######', '#m____#', '#.....#', '#M....#', '#######']);
+  move(s, 0, 'right');
+  assert.deepStrictEqual(s.players[0], [1, 5]);
+  s.players[0] = [1, 1];
+  s.players[1] = [1, 4];
+  move(s, 0, 'right');
+  assert.deepStrictEqual(s.players[0], [1, 3]);
+});
+
+test('water: a crate pushed in becomes a bridge', () => {
+  const { s } = scratch(['######', '#M$~.#', '#m...#', '######']);
+  assert.ok(move(s, 1, 'right'));
+  assert.deepStrictEqual(s.boxes, [null]);
+  assert.deepStrictEqual(s.filled, ['1,3']);
+  assert.ok(move(s, 1, 'right'));
+  assert.ok(move(s, 1, 'right'));
+  assert.deepStrictEqual(s.players[1], [1, 4]);
+});
+
+test('cracked floor and mouse holes are for Mini only', () => {
+  const { s } = scratch(['#####', '#mx.#', '#Mo.#', '#####']);
+  assert.ok(move(s, 0, 'right'));
+  assert.strictEqual(move(s, 1, 'right'), false);
+});
+
+test('levers flip their gate every time you step on them', () => {
+  const { s } = scratch(['#######', '#mu.U.#', '#M....#', '#######']);
+  move(s, 0, 'right');
+  assert.strictEqual(s.levers.u, true);
+  move(s, 0, 'right');
+  assert.ok(move(s, 0, 'right'), 'gate open');
+  move(s, 0, 'left');
+  move(s, 0, 'left');
+  move(s, 0, 'left');
+  assert.strictEqual(s.levers.u, false);
+});
+
+test('a key opens one lock, for whoever carries it', () => {
+  const { s } = scratch(['#######', '#mk.KK#', '#M....#', '#######']);
+  assert.ok(move(s, 0, 'right'));
+  assert.deepStrictEqual(s.keys, [1, 0]);
+  move(s, 0, 'right');
+  assert.ok(move(s, 0, 'right'), 'first lock opens');
+  assert.strictEqual(move(s, 0, 'right'), false, 'no key left');
+});
+
+test('doors open only while their button is pressed', () => {
+  const s = loadLevel(0); // Maxi above door B, button b in Mini's room
+  s.players[1] = [2, 5];
   assert.strictEqual(move(s, 1, 'down'), false);
-  s.players[0] = [2, 2]; // Mini on plate b
+  s.players[0] = [2, 2];
   assert.ok(move(s, 1, 'down'));
 });

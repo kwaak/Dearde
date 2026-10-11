@@ -1,38 +1,39 @@
 # Samen 💞
 
-A small co-op puzzle game for two phones, inspired by *It Takes Two*. Two
-characters have different powers and can only reach the hearts together:
+A small co-op puzzle world for two phones, inspired by *It Takes Two*. Two
+characters with different powers can only get through it together:
 
-- **Mini** (player 1) is small and fits through mouse holes.
-- **Maxi** (player 2) is big and pushes crates.
-- A coloured **button** (pink, blue, purple or green) opens the door with the same colour, but only while
-  someone (or a crate) is standing on it.
+- **Mini** (player 1) is small: fits through mouse holes and over cracked floor.
+- **Maxi** (player 2) is strong: pushes crates, also into water as a bridge.
 
-There are ten levels, getting harder as you go. It's made for two people on
-the couch, each with a phone. Hints are hidden behind a 💡 button, and each
-phone only shows its own player's hint, so you have to talk to each other
-to get through.
-The board is a little isometric 3D diorama drawn with three.js (vendored
-in `public/vendor`, MIT). The arrow buttons point diagonally, the way the
-characters walk on screen. Phones without WebGL get the flat 2D board.
-Plain Node.js with no npm dependencies on the server.
+The world is one journey through six zones, each adding something new:
+the Garden (buttons and doors), the Ice Plain (you slide until something
+stops you, and a partner makes a fine stopper), the Cave (mouse holes,
+cracked floor, crates), the Lake (crate bridges), the Castle (keys, locks and
+levers) and the Heart, where everything comes together. When both players
+stand on the hearts of an area they walk over a little bridge into the next
+one. There are no level screens in between.
 
-- **Two phones:** phone 1 taps *Start een spel* and shows a QR code. Phone 2
-  scans it with the camera and taps *Speel mee!*.
-- **One phone:** *Liever samen op één telefoon?* shows two sets of arrow
-  buttons.
+Areas live in `world.js`. The tests run a solver over every area: each one
+must be solvable, impossible for either player alone, and every zone must
+peak harder than the one before.
 
-`game.js` holds the rules and the levels and is shared by the server and the
-browser. The tests run a solver over every level. They check that each level
-can be solved, and that neither player can solve it alone. Rooms live in
-memory, so a restart clears running games.
+Progress is saved after every step, in `DATA_DIR` (default `./data`) on the
+server, and in the browser for the one-phone mode. Opening the game later
+offers *Verder spelen*. On another phone you enter the code and pick who you
+are.
+
+The board is an isometric 3D diorama drawn with three.js (vendored in
+`public/vendor`, MIT). The arrow buttons point the way the characters walk
+on screen. Phones without WebGL get a flat 2D board. Each phone only shows
+its own player's hint, behind a 💡 button, so you have to talk to each other.
 
 ## Local development
 
 ```bash
 cd samen
 npm start          # http://localhost:8080  (PORT=... to change)
-npm test           # rules + level solver
+npm test           # rules + solver over the whole world
 ```
 
 ## Deploy
