@@ -8,8 +8,9 @@ characters have different powers and can only reach the hearts together:
 - A coloured **button** opens the door with the same colour, but only while
   someone (or a crate) is standing on it.
 
-There are three levels. Each player gets a personal tip for their character
-in every level. Tapping a tile points it out to your partner with a ping.
+There are three levels. It's made for two people on the couch, each with a
+phone: every phone shows only its own player's task, so you have to talk to
+each other to get through.
 Plain Node.js with no npm dependencies, and a single static page.
 
 - **Two phones:** phone 1 taps *Start een spel* and shows a QR code. Phone 2

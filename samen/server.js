@@ -34,7 +34,6 @@ function createRoom() {
     game: loadLevel(0),
     finished: false, // all levels done
     totalMoves: 0,
-    ping: null, // { seat, r, c, at }
     clients: new Set(), // { res, seat }
     touched: Date.now(),
   };
@@ -57,7 +56,6 @@ function publicState(room, seat) {
     game: view(room.game),
     finished: room.finished,
     totalMoves: room.totalMoves,
-    ping: room.ping,
   };
 }
 
@@ -205,15 +203,6 @@ async function handleApi(req, res, url) {
     room.game = loadLevel(0);
     room.finished = false;
     room.totalMoves = 0;
-    broadcast(room);
-    return send(res, 200, { ok: true });
-  }
-
-  if (action === 'ping') {
-    const r = Number(body.r);
-    const c = Number(body.c);
-    if (!Number.isInteger(r) || !Number.isInteger(c)) return send(res, 400, { error: 'bad ping' });
-    room.ping = { seat, r, c, at: Date.now() };
     broadcast(room);
     return send(res, 200, { ok: true });
   }

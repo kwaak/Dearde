@@ -117,8 +117,6 @@
   @keyframes bump { 25% { transform: translateX(-8%); } 75% { transform: translateX(8%); } }
   .sprite.step .char { animation: squash .15s; }
   @keyframes squash { 50% { transform: scale(1.1, .9); } }
-  .ping { position: absolute; pointer-events: none; border-radius: 50%; border: 4px solid var(--ping); animation: ping .9s ease-out 3; z-index: 3; }
-  @keyframes ping { from { transform: scale(.3); opacity: 1; } to { transform: scale(1.7); opacity: 0; } }
 
   .overlay { position: absolute; inset: 0; background: rgba(255, 247, 236, .92); border-radius: 18px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; text-align: center; padding: 20px; z-index: 5; animation: pop .35s; }
   .overlay .big { font-size: 1.8rem; font-weight: 700; }
@@ -341,7 +339,7 @@
     $('footHint').classList.toggle('hidden', mode === 'local');
     $('tips').innerHTML = seats.map((seat) => `<div class="tip">${charHtml(seat)}<p><b>${mode === 'local' ? NAMES[seat] : 'Jouw opdracht als ' + NAMES[seat]}</b>${g.tips[seat]}</p></div>`).join('');
     $('footHint').textContent = mode === 'online'
-      ? 'Tip: tik op een vakje om het je maatje aan te wijzen.'
+      ? 'Jullie zien allebei een andere opdracht. Vertel elkaar wat je moet doen!'
       : 'Samen bij de hartjes staan = level gehaald!';
 
     const ov = $('overlay');
@@ -361,11 +359,6 @@
       celebrate('level' + g.level);
     } else {
       ov.classList.add('hidden');
-    }
-
-    if (s.ping && s.ping.at !== lastPingAt) {
-      lastPingAt = s.ping.at;
-      showPing(s.ping);
     }
   }
 
@@ -387,21 +380,6 @@
   }
 
   window.addEventListener('resize', () => { if (state && state.game && !$('game').classList.contains('hidden')) render(state); });
-
-  let lastPingAt = null;
-  function showPing(p) {
-    if (Date.now() - p.at > 3000) return;
-    const tile = board.querySelector(`.tile[data-r="${p.r}"][data-c="${p.c}"]`);
-    if (!tile) return;
-    const ring = document.createElement('div');
-    ring.className = 'ping';
-    ring.style.setProperty('--ping', p.seat === 0 ? 'var(--mini)' : 'var(--maxi)');
-    ring.style.left = tile.offsetLeft + 'px'; ring.style.top = tile.offsetTop + 'px';
-    ring.style.width = tile.offsetWidth + 'px'; ring.style.height = tile.offsetHeight + 'px';
-    board.appendChild(ring);
-    if (p.seat !== state.you) vibrate(30);
-    setTimeout(() => ring.remove(), 2800);
-  }
 
   function bump(seat) {
     const sp = sprites[state.game.boxes.length + seat];
@@ -459,19 +437,15 @@
     e.preventDefault();
   });
 
-  // Swipe on the board moves your own character; a tap points out a tile.
+  // Swiping on the board moves your own character.
   let touchStart = null;
-  board.addEventListener('pointerdown', (e) => { touchStart = { x: e.clientX, y: e.clientY, t: e.target }; });
+  board.addEventListener('pointerdown', (e) => { touchStart = { x: e.clientX, y: e.clientY }; });
   board.addEventListener('pointerup', (e) => {
-    if (!touchStart || !state) return;
+    if (!touchStart || !state || mode !== 'online') return;
     const dx = e.clientX - touchStart.x, dy = e.clientY - touchStart.y;
-    const tile = touchStart.t.closest && touchStart.t.closest('.tile');
     touchStart = null;
-    if (mode !== 'online') return;
     if (Math.max(Math.abs(dx), Math.abs(dy)) > 24) {
       step(state.you, Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'));
-    } else if (tile) {
-      api(`/api/rooms/${session.code}/ping`, { token: session.token, r: +tile.dataset.r, c: +tile.dataset.c }).catch(() => {});
     }
   });
 
@@ -551,7 +525,7 @@
   function renderLocal() {
     render({
       code: '', you: -1, players: [{ name: '' }, { name: '' }],
-      game: Samen.view(local), finished: localFinished, totalMoves: localTotal, ping: null,
+      game: Samen.view(local), finished: localFinished, totalMoves: localTotal,
     });
   }
   $('localBtn').onclick = () => {
