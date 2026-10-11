@@ -13,7 +13,7 @@
     --text: #3d2b52; --muted: #8b7a9e; --card: rgba(255, 255, 255, .78);
     --mini: #ff6f91; --mini-dark: #e2456c; --maxi: #ffb84d; --maxi-dark: #e8932a;
     --floor: #fff7ec; --floor-edge: #f1e2cf; --wall: #8a6cc2; --wall-dark: #6a4ea3;
-    --pa: #ff5fa2; --pb: #3cb4ff; --pc: #9b6bff; --heart: #ff4d6d; --crate: #c98b52;
+    --pa: #ff5fa2; --pb: #3cb4ff; --pc: #9b6bff; --pd: #2fc46b; --heart: #ff4d6d; --crate: #c98b52;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { min-height: 100%; }
@@ -86,6 +86,8 @@
   .tip .char.mini { width: 34px; height: 34px; } .tip .char.maxi { width: 38px; height: 42px; }
   .tip p { font-size: 1.05rem; line-height: 1.3; }
   .tip p b { display: block; font-size: .85rem; color: var(--muted); font-weight: 600; }
+  .hintbtn { align-self: center; padding: 10px 22px; border-radius: 999px; background: #fff; color: var(--text); font-size: 1rem; font-weight: 600; box-shadow: 0 3px 0 var(--floor-edge); }
+  .hintbtn:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--floor-edge); }
   #tips.compact { flex-direction: row !important; }
   #tips.compact .tip { flex: 1; padding: 8px 10px; gap: 8px; align-items: flex-start; }
   #tips.compact .tip p { font-size: .85rem; } #tips.compact .tip p b { display: none; }
@@ -223,7 +225,7 @@
     set(k, v) { try { localStorage.setItem(k, v); } catch {} },
   };
   const NAMES = ['Mini', 'Maxi'];
-  const PLATE = { a: 'var(--pa)', b: 'var(--pb)', c: 'var(--pc)' };
+  const PLATE = { a: 'var(--pa)', b: 'var(--pb)', c: 'var(--pc)', d: 'var(--pd)' };
   const ARROWS = { up: '▲', down: '▼', left: '◀', right: '▶' };
   const charHtml = (seat) => `<div class="char ${seat ? 'maxi' : 'mini'}"><div class="face"></div><div class="smile"></div><div class="cheek l"></div><div class="cheek r"></div></div>`;
   const vibrate = (ms) => { try { navigator.vibrate && navigator.vibrate(ms); } catch {} };
@@ -236,6 +238,7 @@
   let renderedLevel = -1;
   let sprites = [];
   let lastSolvedKey = null;
+  let hintLevel = -1;
 
   function show(screen) {
     for (const id of ['lobby', 'invite', 'share', 'game']) $(id).classList.toggle('hidden', id !== screen);
@@ -265,6 +268,7 @@
     g.boxes.forEach(() => sprites.push(add('<div class="box"></div>', 'crate')));
     sprites.push(add(charHtml(0), 'p0'), add(charHtml(1), 'p1'));
     renderedLevel = g.level;
+    hintLevel = -1;
   }
 
   function place(sprite, [r, c], g) {
@@ -286,10 +290,10 @@
       if (t === '#') cls += ' wall';
       else if (t === 'o') cls += ' tunnel';
       else if (t === 'E') cls += ' exit';
-      else if (/^[a-c]$/.test(t)) {
+      else if (/^[a-d]$/.test(t)) {
         cls += ' plate' + (occupied.has(`${r},${c}`) ? ' pressed' : '');
         el.style.setProperty('--pc-color', PLATE[t]);
-      } else if (/^[A-C]$/.test(t) || t.endsWith('_open')) {
+      } else if (/^[A-D]$/.test(t) || t.endsWith('_open')) {
         cls += ' door' + (t.endsWith('_open') ? ' open' : '');
         el.style.setProperty('--pc-color', PLATE[t[0].toLowerCase()]);
       } else cls += ' floor';
@@ -334,13 +338,14 @@
     $('stars').innerHTML = Array.from({ length: g.levels }, (_, i) =>
       `<span class="${i < g.level || s.finished ? 'done' : i === g.level ? 'now' : ''}"></span>`).join('');
 
+    // Hints stay hidden until asked for, per level and per phone.
     const seats = mode === 'local' ? [0, 1] : [s.you];
-    $('tips').classList.toggle('compact', mode === 'local');
-    $('footHint').classList.toggle('hidden', mode === 'local');
-    $('tips').innerHTML = seats.map((seat) => `<div class="tip">${charHtml(seat)}<p><b>${mode === 'local' ? NAMES[seat] : 'Jouw opdracht als ' + NAMES[seat]}</b>${g.tips[seat]}</p></div>`).join('');
-    $('footHint').textContent = mode === 'online'
-      ? 'Jullie zien allebei een andere opdracht. Vertel elkaar wat je moet doen!'
-      : 'Samen bij de hartjes staan = level gehaald!';
+    const showHint = hintLevel === g.level;
+    $('tips').classList.toggle('compact', showHint && mode === 'local');
+    $('tips').innerHTML = showHint
+      ? seats.map((seat) => `<div class="tip">${charHtml(seat)}<p><b>${mode === 'local' ? NAMES[seat] : 'Hint voor ' + NAMES[seat]}</b>${g.tips[seat]}</p></div>`).join('')
+      : '<button class="hintbtn" id="hintBtn">💡 Hint</button>';
+    $('footHint').textContent = 'Kom samen bij de hartjes ❤';
 
     const ov = $('overlay');
     if (s.finished) {
@@ -378,6 +383,12 @@
       setTimeout(() => c.remove(), 4000);
     }
   }
+
+  $('tips').addEventListener('click', (e) => {
+    if (!e.target.closest('#hintBtn') || !state || !state.game) return;
+    hintLevel = state.game.level;
+    render(state);
+  });
 
   window.addEventListener('resize', () => { if (state && state.game && !$('game').classList.contains('hidden')) render(state); });
 

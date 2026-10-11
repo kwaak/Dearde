@@ -5,12 +5,13 @@ characters have different powers and can only reach the hearts together:
 
 - **Mini** (player 1) is small and fits through mouse holes.
 - **Maxi** (player 2) is big and pushes crates.
-- A coloured **button** opens the door with the same colour, but only while
+- A coloured **button** (pink, blue, purple or green) opens the door with the same colour, but only while
   someone (or a crate) is standing on it.
 
-There are three levels. It's made for two people on the couch, each with a
-phone: every phone shows only its own player's task, so you have to talk to
-each other to get through.
+There are ten levels, getting harder as you go. It's made for two people on
+the couch, each with a phone. Hints are hidden behind a 💡 button, and each
+phone only shows its own player's hint, so you have to talk to each other
+to get through.
 Plain Node.js with no npm dependencies, and a single static page.
 
 - **Two phones:** phone 1 taps *Start een spel* and shows a QR code. Phone 2

@@ -5,7 +5,7 @@
 (function (root) {
   'use strict';
 
-  // # wall  . floor  o tunnel (Mini only)  $ crate  a-c plate  A-C door
+  // # wall  . floor  o tunnel (Mini only)  $ crate  a-d plate  A-D door
   // E exit  m Mini start  M Maxi start
   const LEVELS = [
     {
@@ -56,6 +56,124 @@
         '#...#####A##',
         '######E...E#',
         '############',
+      ],
+    },
+    {
+      title: 'Om de beurt',
+      tips: [
+        'Jullie gaan om de beurt. Stap op de paarse knop, en later op de groene.',
+        'Als je erlangs bent: stap op de roze knop, en later op de blauwe.',
+      ],
+      map: [
+        '##############',
+        '#m.c.A.d.B..E#',
+        '##############',
+        '#M...C.a.D.bE#',
+        '##############',
+      ],
+    },
+    {
+      title: 'Estafette',
+      tips: [
+        'Stap op de blauwe knop, zodat Maxi eruit kan.',
+        'Stap op de roze knop voor Mini. Duw daarna de kist op de paarse knop.',
+      ],
+      map: [
+        '###########',
+        '#m..#.....#',
+        '#.b.A..a..#',
+        '#####.$...#',
+        '#M..B.....#',
+        '#...#.c...#',
+        '#####C#####',
+        '#E.......E#',
+        '###########',
+      ],
+    },
+    {
+      title: 'Doolhof',
+      tips: [
+        'Zoek de weg door de muizengaten naar de roze knop.',
+        'Duw de kist op de blauwe knop: eerst opzij, dan omhoog.',
+      ],
+      map: [
+        '#############',
+        '#M..A..b#...#',
+        '#...#.$.B.E.#',
+        '#####...#.E.#',
+        '#m.o.##.#...#',
+        '#.#####.#####',
+        '#.o..a..#####',
+        '#############',
+      ],
+    },
+    {
+      title: 'Kistenkamer',
+      tips: [
+        'Wacht tot Maxi je deuren openduwt. Stap dan op de paarse knop.',
+        'Duw de kisten op de roze en de blauwe knop.',
+      ],
+      map: [
+        '#############',
+        '#M.....#....#',
+        '#..$.$.C.c..#',
+        '#a.....#..E.#',
+        '#.....b#..E.#',
+        '#########B###',
+        '#m....A.....#',
+        '#############',
+      ],
+    },
+    {
+      title: 'Samen sterk',
+      tips: [
+        'Blijf op de blauwe knop staan tot Maxi met de kist door de deur is.',
+        'Duw een kist door de blauwe deur. Er moeten kisten op de paarse én de roze knop.',
+      ],
+      map: [
+        '#############',
+        '#M..#.......#',
+        '#.$.B..$..a.#',
+        '#...#..c....#',
+        '#####C####A##',
+        '#m.b.....#E.#',
+        '#........#E.#',
+        '#############',
+      ],
+    },
+    {
+      title: 'Twee kisten',
+      tips: [
+        'Stap op een blauwe knop, zodat Maxi met een kist naar beneden kan.',
+        'Duw een kist door de blauwe deur op de andere blauwe knop. De tweede kist moet op de roze knop.',
+      ],
+      map: [
+        '############',
+        '#M.....#...#',
+        '#..$.$.A..E#',
+        '#...a..#..E#',
+        '###B########',
+        '#b.........#',
+        '#..b.....m.#',
+        '############',
+      ],
+    },
+    {
+      title: 'Finale',
+      tips: [
+        'Kruip naar de blauwe knop. Daarna mag je door de roze deur.',
+        'Duw de kist naar beneden, stap op de roze knop voor Mini en duw de kist op de paarse knop.',
+      ],
+      map: [
+        '##############',
+        '#m..o..#M....#',
+        '#..#.b.#..$..#',
+        '##A#######B###',
+        '#....a.......#',
+        '#......c.....#',
+        '########C#####',
+        '#######E...E.#',
+        '##############',
       ],
     },
   ];
