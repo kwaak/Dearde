@@ -24,7 +24,8 @@ offers *Verder spelen*. On another phone you enter the code and pick who you
 are.
 
 The board is an isometric 3D diorama drawn with three.js (vendored in
-`public/vendor`, MIT). The arrow buttons point the way the characters walk
+`public/vendor`, MIT), with textures painted procedurally at start-up
+(`public/textures.js`, so there are no image files). The arrow buttons point the way the characters walk
 on screen. Phones without WebGL get a flat 2D board. Each phone only shows
 its own player's hint, behind a 💡 button, so you have to talk to each other.
 

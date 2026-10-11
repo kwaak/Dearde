@@ -3,6 +3,7 @@
 // the areas sit side by side, joined by little bridges, and the camera
 // glides along as the players walk from one area into the next.
 import * as THREE from './vendor/three.module.min.js';
+import * as TEX from './textures.js';
 
 export function webglAvailable() {
   try {
@@ -42,7 +43,14 @@ function heartShape() {
   return s;
 }
 
+// Reflections of a soft studio light, only for shiny things (ice, water,
+// gold, glossy hearts and buttons). On everything else it would wash the
+// colours out.
+let ENV = null;
 const mat = (color, extra = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.6, ...extra });
+const shiny = (extra = {}) => ({ envMap: ENV, envMapIntensity: 1, ...extra });
+// A material painted with a procedural texture that is also its bump map.
+const texMat = (tex, extra = {}) => mat(0xffffff, { map: tex.map, bumpMap: tex.bump, bumpScale: 1.5, ...extra });
 
 function face(group, frontZ, eyeY, spread, scale = 1) {
   const eyeMat = mat(COLORS.eye, { roughness: 0.4 });
@@ -83,20 +91,17 @@ function makeMaxi() {
 
 function makeCrate() {
   const g = new THREE.Group();
-  const geo = new THREE.BoxGeometry(0.76, 0.76, 0.76);
-  const box = new THREE.Mesh(geo, mat(COLORS.crate, { roughness: 0.8 }));
+  const box = new THREE.Mesh(new THREE.BoxGeometry(0.76, 0.76, 0.76), texMat(TEX.crateTex(), { roughness: 0.75, bumpScale: 3 }));
   box.position.y = 0.38;
   box.castShadow = true;
   box.receiveShadow = true;
-  const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: COLORS.crateEdge }));
-  edges.position.y = 0.38;
-  g.add(box, edges);
+  g.add(box);
   return g;
 }
 
 function makeKey() {
   const g = new THREE.Group();
-  const gold = mat(COLORS.gold, { metalness: 0.6, roughness: 0.3, emissive: COLORS.gold, emissiveIntensity: 0.15 });
+  const gold = mat(COLORS.gold, shiny({ metalness: 0.85, roughness: 0.22, emissive: COLORS.gold, emissiveIntensity: 0.1 }));
   const ring = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.04, 10, 24), gold);
   ring.position.x = -0.14;
   const shaft = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.06, 0.06), gold);
@@ -116,9 +121,10 @@ export function createBoard3D(container) {
   container.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
+  ENV = TEX.environment(renderer);
   const camera = new THREE.OrthographicCamera(-5, 5, 5, -5, 0.1, 200);
-  scene.add(new THREE.HemisphereLight(0xfff6ee, 0xb59ad8, 1.6));
-  const sun = new THREE.DirectionalLight(0xffffff, 1.6);
+  scene.add(new THREE.HemisphereLight(0xfff6ee, 0xb59ad8, 1.25));
+  const sun = new THREE.DirectionalLight(0xffffff, 1.5);
   sun.castShadow = true;
   sun.shadow.mapSize.set(1024, 1024);
   sun.shadow.bias = -0.002;
@@ -167,7 +173,7 @@ export function createBoard3D(container) {
     scene.remove(group);
     group.traverse((o) => {
       if (o.geometry) o.geometry.dispose();
-      if (o.material) o.material.dispose();
+      for (const m of [].concat(o.material || [])) m.dispose();
     });
   }
 
@@ -176,18 +182,21 @@ export function createBoard3D(container) {
   function buildArea(level, g, dynamic) {
     const group = new THREE.Group();
     group.position.set(offsets[level], 0, -(g.tiles.length - 1) / 2);
-    const theme = THEMES[AREAS[level].zone] || THEMES.tuin;
+    const zone = THEMES[AREAS[level].zone] ? AREAS[level].zone : 'tuin';
     const parts = { doors: [], plates: [], tunnels: [], hearts: [], water: [], keys: [], locks: [], levers: [], crates: [] };
     const tile = (r, c) => g.tiles[r] && g.tiles[r][c];
     const open = (t) => t && t !== '#' && t !== 'o';
 
     const floorGeo = new THREE.BoxGeometry(0.98, 0.2, 0.98);
-    const floorMats = [theme.floorA, theme.floorB].map((c) => mat(c, { roughness: 0.9 }));
+    const floorMats = [0, 1].map((v) => texMat(TEX.floorTex(zone, v), { roughness: 0.92 }));
+    const crackedMat = texMat(TEX.crackedTex(zone), { roughness: 0.95, bumpScale: 3 });
     const wallGeo = new THREE.BoxGeometry(1, WALL_H, 1);
-    const wallMat = mat(theme.wall, { roughness: 0.7 });
-    const topGeo = new THREE.BoxGeometry(0.9, 0.04, 0.9);
-    const topMat = mat(theme.top);
-    const iceMat = mat(COLORS.ice, { roughness: 0.08, metalness: 0.1 });
+    const side = texMat(TEX.wallTex(zone, false), { roughness: 0.8, bumpScale: 2.5 });
+    const top = texMat(TEX.wallTex(zone, true), { roughness: 0.75, bumpScale: 2 });
+    const wallMat = [side, side, top, side, side, side]; // box faces: +x -x +y -y +z -z
+    const iceMat = texMat(TEX.iceTex(), shiny({ color: 0xcfe6ff, roughness: 0.08, bumpScale: 0.3, envMapIntensity: 0.35 }));
+    const plankMat = texMat(TEX.plankTex(), { roughness: 0.8, bumpScale: 2 });
+    const waterMat = texMat(TEX.waterTex(), shiny({ roughness: 0.1, transparent: true, opacity: 0.9, bumpScale: 0.5, envMapIntensity: 0.7 }));
 
     const add = (mesh, r, c, y) => { mesh.position.set(c, y, r); group.add(mesh); return mesh; };
 
@@ -198,42 +207,35 @@ export function createBoard3D(container) {
         if (!near) return;
         const wall = add(new THREE.Mesh(wallGeo, wallMat), r, c, WALL_H / 2 - 0.2);
         wall.castShadow = true; wall.receiveShadow = true;
-        add(new THREE.Mesh(topGeo, topMat), r, c, WALL_H - 0.18);
         return;
       }
       if (t === '~' || t === '=') {
-        const water = add(new THREE.Mesh(new THREE.BoxGeometry(1, 0.12, 1), mat(COLORS.water, { roughness: 0.15, transparent: true, opacity: 0.85 })), r, c, -0.16);
-        const plank = add(new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.2, 0.92), mat(COLORS.bridge, { roughness: 0.8 })), r, c, -0.1);
+        const water = add(new THREE.Mesh(new THREE.BoxGeometry(1, 0.12, 1), waterMat), r, c, -0.16);
+        const plank = add(new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.2, 0.92), plankMat), r, c, -0.1);
         plank.receiveShadow = true;
         plank.visible = t === '=';
         parts.water.push({ r, c, water, plank });
         return;
       }
-      const floor = add(new THREE.Mesh(floorGeo, t === '_' ? iceMat : floorMats[(r + c) % 2]), r, c, -0.1);
+      const floorMat = t === '_' ? iceMat : t === 'x' ? crackedMat : floorMats[(r + c) % 2];
+      const floor = add(new THREE.Mesh(floorGeo, floorMat), r, c, t === 'x' ? -0.12 : -0.1);
       floor.receiveShadow = true;
 
-      if (t === 'x') {
-        // Cracked floor: a few dark cracks across a paler tile.
-        const crackMat = mat(COLORS.crack, { roughness: 1 });
-        for (const [len, rot, dx, dz] of [[0.7, 0.5, 0, 0], [0.4, -0.9, 0.15, 0.12], [0.35, 1.9, -0.18, -0.1]]) {
-          const crack = add(new THREE.Mesh(new THREE.BoxGeometry(len, 0.012, 0.035), crackMat), r, c, 0.006);
-          crack.rotation.y = rot;
-          crack.position.x += dx; crack.position.z += dz;
-        }
-      } else if (t === 'o') {
+      if (t === 'o') {
         const along = open(tile(r, c - 1)) || open(tile(r, c + 1)) ? 'x' : 'z';
-        const block = add(new THREE.Mesh(new THREE.BoxGeometry(1, WALL_H, 1), mat(theme.wall, { transparent: true })), r, c, WALL_H / 2 - 0.18);
+        const block = add(new THREE.Mesh(new THREE.BoxGeometry(1, WALL_H, 1), texMat(TEX.wallTex(zone, false), { transparent: true, bumpScale: 2.5 })), r, c, WALL_H / 2 - 0.18);
         block.castShadow = true;
         add(new THREE.Mesh(new THREE.BoxGeometry(along === 'x' ? 1.02 : 0.46, 0.34, along === 'x' ? 0.46 : 1.02), mat(COLORS.hole, { roughness: 1 })), r, c, 0.17);
         parts.tunnels.push({ mesh: block, r, c });
       } else if (/^[a-d]$/.test(t)) {
-        const plate = add(new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.34, 0.1, 32), mat(COLORS[t], { roughness: 0.35, emissive: COLORS[t], emissiveIntensity: 0 })), r, c, 0.05);
+        const plateTop = texMat(TEX.plateTex(COLORS[t]), shiny({ roughness: 0.25, bumpScale: 1, emissive: COLORS[t], emissiveIntensity: 0, envMapIntensity: 0.5 }));
+        const plate = add(new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.34, 0.1, 32), [mat(COLORS[t], { roughness: 0.4 }), plateTop, plateTop]), r, c, 0.05);
         plate.receiveShadow = true;
         parts.plates.push({ mesh: plate, r, c });
       } else if (/^[A-D]\+?$/.test(t)) {
         const color = COLORS[t[0].toLowerCase()];
         add(new THREE.Mesh(new THREE.BoxGeometry(0.94, 0.03, 0.94), mat(color, { transparent: true, opacity: 0.55 })), r, c, 0.015);
-        const door = add(new THREE.Mesh(new THREE.BoxGeometry(0.9, WALL_H + 0.1, 0.9), mat(color, { roughness: 0.35, transparent: true, opacity: 0.9 })), r, c, (WALL_H + 0.1) / 2);
+        const door = add(new THREE.Mesh(new THREE.BoxGeometry(0.9, WALL_H + 0.1, 0.9), texMat(TEX.doorTex(color), shiny({ roughness: 0.35, bumpScale: 1.5, envMapIntensity: 0.4 }))), r, c, (WALL_H + 0.1) / 2);
         door.castShadow = true;
         parts.doors.push({ mesh: door, r, c, y: door.position.y, open: t.endsWith('+') });
       } else if (/^[UV][01]$/.test(t)) {
@@ -269,7 +271,7 @@ export function createBoard3D(container) {
         parts.keys.push({ mesh: key, r, c });
       } else if (t === 'K' || t === 'K+') {
         const lock = new THREE.Group();
-        const door = new THREE.Mesh(new THREE.BoxGeometry(0.9, WALL_H + 0.1, 0.9), mat(0x9a7a5a, { roughness: 0.8 }));
+        const door = new THREE.Mesh(new THREE.BoxGeometry(0.9, WALL_H + 0.1, 0.9), texMat(TEX.lockDoorTex(), { roughness: 0.75, bumpScale: 2.5 }));
         door.position.y = (WALL_H + 0.1) / 2;
         door.castShadow = true;
         const padlock = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.24, 0.1), mat(COLORS.gold, { metalness: 0.6, roughness: 0.3 }));
@@ -282,7 +284,7 @@ export function createBoard3D(container) {
       } else if (t === 'E') {
         const heart = add(new THREE.Mesh(
           new THREE.ExtrudeGeometry(heartShape(), { depth: 0.1, bevelEnabled: true, bevelThickness: 0.04, bevelSize: 0.04, bevelSegments: 3, curveSegments: 16 }),
-          mat(COLORS.heart, { roughness: 0.3, emissive: COLORS.heart, emissiveIntensity: 0.15 }),
+          new THREE.MeshPhysicalMaterial(shiny({ color: COLORS.heart, roughness: 0.25, clearcoat: 1, clearcoatRoughness: 0.1, emissive: COLORS.heart, emissiveIntensity: 0.12, envMapIntensity: 0.8 })),
         ), r, c, 0.48);
         heart.geometry.center();
         heart.scale.setScalar(0.78);
@@ -295,7 +297,6 @@ export function createBoard3D(container) {
 
     // A small bridge towards the next area, at the middle row.
     if (level + 1 < AREAS.length) {
-      const plankMat = mat(COLORS.bridge, { roughness: 0.8 });
       const midZ = (g.tiles.length - 1) / 2;
       for (let i = 0; i < GAP; i++) {
         const plank = new THREE.Mesh(new THREE.BoxGeometry(0.98, 0.14, 0.7), plankMat);
@@ -458,9 +459,11 @@ export function createBoard3D(container) {
         }
         for (const p of live.plates) {
           p.mesh.position.y += ((p.pressed ? 0.01 : 0.05) - p.mesh.position.y) * 0.3;
-          p.mesh.material.emissiveIntensity = p.pressed ? 0.45 : 0;
+          p.mesh.material[1].emissiveIntensity = p.pressed ? 0.45 : 0;
         }
         for (const t of live.tunnels) t.mesh.material.opacity = t.inside ? 0.35 : 1;
+        const ripple = TEX.waterTex().map;
+        ripple.offset.set(now / 9000, Math.sin(now / 2600) * 0.04);
         for (const l of live.locks) {
           l.mesh.position.y += ((l.open ? -WALL_H - 0.2 : 0) - l.mesh.position.y) * 0.15;
         }
