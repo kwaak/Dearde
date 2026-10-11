@@ -12,7 +12,10 @@ There are ten levels, getting harder as you go. It's made for two people on
 the couch, each with a phone. Hints are hidden behind a 💡 button, and each
 phone only shows its own player's hint, so you have to talk to each other
 to get through.
-Plain Node.js with no npm dependencies, and a single static page.
+The board is a little isometric 3D diorama drawn with three.js (vendored
+in `public/vendor`, MIT). The arrow buttons point diagonally, the way the
+characters walk on screen. Phones without WebGL get the flat 2D board.
+Plain Node.js with no npm dependencies on the server.
 
 - **Two phones:** phone 1 taps *Start een spel* and shows a QR code. Phone 2
   scans it with the camera and taps *Speel mee!*.

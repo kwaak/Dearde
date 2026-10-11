@@ -212,7 +212,12 @@ async function handleApi(req, res, url) {
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, 'http://localhost');
-  if (url.pathname === '/health') return send(res, 200, { status: 'ok', rooms: rooms.size });
+  if (url.pathname === '/health') {
+    // `clients` lets the auto-updater wait until nobody is playing.
+    let clients = 0;
+    for (const room of rooms.values()) clients += room.clients.size;
+    return send(res, 200, { status: 'ok', rooms: rooms.size, clients, version: process.env.GAME_VERSION || 'dev' });
+  }
   if (url.pathname === '/game.js') {
     // The browser uses the same rules module for the one-device mode.
     return fs.readFile(path.join(__dirname, 'game.js'), (err, data) => {
