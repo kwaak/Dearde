@@ -462,6 +462,21 @@ const FX = {
       env(g, t, 0.05, 0.05 / (i + 1), 0.6);
     }
   },
+  warn(t) {
+    // A soft two-tone alarm: something is coming.
+    [0, 0.18].forEach((d) => {
+      const g = ctx.createGain(); g.connect(sfxBus);
+      osc('triangle', d ? 660 : 880, t + d, t + d + 0.14, g);
+      env(g, t + d, 0.01, 0.12, 0.13);
+    });
+  },
+  strike(t) {
+    noise(t, 0.45, 0.25, sfxBus, { type: 'bandpass', freq: 700, q: 0.8, to: 2400 });
+    kick(t + 0.35, 0.4, sfxBus);
+  },
+  swap(t) {
+    for (let i = 0; i < 6; i++) play('celesta', i % 2 ? 79 : 84, t + i * 0.07, 0.12, 0.1, sfxBus);
+  },
   click(t) { noise(t, 0.015, 0.12, sfxBus, { type: 'highpass', freq: 2500 }); },
 };
 
@@ -541,6 +556,10 @@ export function observe(prev, next, mine) {
     if (next.ptimer > prev.ptimer) sfx('pswitch');
     else if (next.ptimer > 0) sfx('tick', next.ptimer <= 2);
     if (next.boss && prev.boss) {
+      if (next.boss.warn && !prev.boss.warn) sfx('warn');
+      if (next.boss.strikes > prev.boss.strikes) sfx('strike');
+      if (next.boss.knocked && next.boss.knocked.length) sfx('warp');
+      if (next.boss.swap !== prev.boss.swap) sfx('swap');
       if (next.boss.hits > prev.boss.hits) sfx(next.boss.hp > 0 ? 'bossHit' : 'bossDown');
       else if (next.boss.pos && prev.boss.pos && String(next.boss.pos) !== String(prev.boss.pos)) sfx('bossStep');
     }

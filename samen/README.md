@@ -23,26 +23,33 @@ one. There are no level screens in between.
 
 Every zone ends with a boss guarding the hearts in a cage. Bosses take a
 step after every move (walking a round, or chasing the nearest player and
-shoving them aside), and each has its own weak spot that takes the two of
-you:
+shoving them aside) and fight in three phases, one per life. Every hit
+starts a new phase that can move the boss, change its weak spot and the
+arena, and add a telegraphed attack: a row, column or cross glows red for
+one turn, then whoever still stands there is whisked back to their start.
 
 - **Graaf Mol** (Garden): a flower trap that snaps when the last of two pink
-  buttons goes down while he is on it.
-- **Keizer Brrr** (Ice): a penguin sliding after you; hit him with a
-  crate sliding over the ice.
-- **Rommel de Rotsreus** (Cave): too heavy for cracked floor; Mini lures him
-  across and he crashes through, leaving a hole.
-- **Inkie de Inktvis** (Lake): swims to whoever stands at the shore; Maxi
-  drops a crate on her through a chute. Missed crates sink in the deep.
-- **Draak Knorbert** (Mushroom Kingdom): patrols a crumbly bridge that falls
-  away when the P-switch is pressed.
-- **Spookridder Boe** (Castle): only beaten by squeezing him between Mini
-  and Maxi.
-- **Jeti Joep** (Mountains): lured under a ledge, then a crate drops on him.
-- **De Hartendief** (Heart): changes his weak spot after every hit: flower
-  trap, crate, squeeze.
+  buttons goes down while he is on it; then he digs a wider tunnel with the
+  flower elsewhere, and finally throws clods of earth.
+- **Keizer Brrr** (Ice): hit by sliding crates; he freezes the floor, then
+  icicles rain down a column.
+- **Rommel de Rotsreus** (Cave): lured across cracked floor; a boulder
+  drops into the hall, then rock slides sweep the rows.
+- **Inkie de Inktvis** (Lake): crates dropped on her through chutes; she
+  sprays ink, then flees to the far side and sprays faster.
+- **Draak Knorbert** (Mushroom Kingdom): a bridge that collapses under him
+  with the P-switch; fireballs, then he turns round and spits faster.
+- **Spookridder Boe** (Castle): squeezed between Mini and Maxi; he turns
+  invisible to all but the nearest player (so you have to tell each other),
+  then haunts the columns with icy breath.
+- **Jeti Joep** (Mountains): crates dropped from the ledge; snowballs, then
+  an avalanche turns the floor to ice.
+- **De Hartendief** (Heart): the flower trap, then a crate while he swaps
+  your controls (each pad moves the other character), then squeezing him
+  while he shoots heart arrows.
 
-A chasing boss with nobody in reach walks back home, so one of you has to be
+Beating a boss zooms in on it, opens the cage and sends hearts flying. A
+chasing boss with nobody in reach walks back home, so one of you has to be
 the bait while the other strikes.
 
 Areas live in `world.js`. The tests run a solver over every area: each one

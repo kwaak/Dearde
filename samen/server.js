@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const zlib = require('node:zlib');
-const { AREAS, loadLevel, move, view } = require('./game');
+const { AREAS, loadLevel, move, view, controlledBy } = require('./game');
 
 const PORT = Number(process.env.PORT) || 8080;
 const PUBLIC_DIR = path.join(__dirname, 'public');
@@ -327,7 +327,8 @@ async function handleApi(req, res, url) {
     const results = moves.map((m) => {
       // Phones resend every move until it is confirmed: skip ones already done.
       if (Number.isFinite(m.seq) && m.seq <= room.acked[seat]) return null;
-      const ok = !room.finished && !room.game.solved && move(room.game, seat, String(m.dir));
+      // Some bosses swap the controls: then this phone moves the partner.
+      const ok = !room.finished && !room.game.solved && move(room.game, controlledBy(room.game, seat), String(m.dir));
       if (Number.isFinite(m.seq)) room.acked[seat] = m.seq;
       if (ok) {
         changed = true;

@@ -34,8 +34,13 @@
   //   T flower trap: snaps when the last pink button (a) goes down
   //   Q crumbly bridge: falls away while the P-switch runs
   //   % deep water: crates sink without a trace, swimming bosses live here
-  // A boss is hit in its own way (`weak`); after a hit it goes back to
-  // where it started, until it has no lives left.
+  // A boss is hit in its own way (`weak`). It fights in phases, one per
+  // life: after every hit the next phase starts, which may change its weak
+  // spot, its round, its speed and the arena (`set`: tiles, `boxes`: new
+  // crates), add a telegraphed `attack` (one turn of warning on a row,
+  // column or cross, then players there are sent back to their start), hide
+  // it from all but the nearest player (`hide`) or swap the controls
+  // (`swap`).
   const P_TIME = 8;
   const DIRS = { up: [-1, 0], down: [1, 0], left: [0, -1], right: [0, 1] };
   const STEPS = Object.values(DIRS);
@@ -64,7 +69,28 @@
       tiles.forEach((row, r) => row.forEach((t, c) => { if (t === 'G') { bossStart = [r, c]; row[c] = (AREAS[index].boss && AREAS[index].boss.under) || '.'; } }));
       const spec = AREAS[index].boss;
       if (spec && spec.path) bossStart = spec.path[0];
-      parsed.set(index, { tiles, boxes, players, pipes, coins, heights, bossStart, spec });
+      let phases = null;
+      let phaseTiles = null;
+      if (spec) {
+        // One phase per life; each builds on the arena of the one before.
+        const list = spec.phases || [{}];
+        phases = [];
+        phaseTiles = [];
+        let grid = tiles;
+        for (let i = 0; i < spec.hp; i++) {
+          const own = list[Math.min(i, list.length - 1)];
+          const ph = { ...spec, ...own };
+          if (Array.isArray(spec.weak) && !own.weak) ph.weak = spec.weak[Math.min(i, spec.weak.length - 1)];
+          ph.home = ph.path ? ph.path[0] : ph.home || bossStart;
+          if (i > 0 && own.set) {
+            grid = grid.map((row) => row.slice());
+            for (const [t, cells] of Object.entries(own.set)) for (const [r, c] of cells) grid[r][c] = t;
+          }
+          phases.push(ph);
+          phaseTiles.push(grid);
+        }
+      }
+      parsed.set(index, { tiles, boxes, players, pipes, coins, heights, bossStart, spec, phases, phaseTiles });
     }
     return parsed.get(index);
   }
@@ -102,7 +128,10 @@
       unlocked: s.unlocked.slice(),
       broken: s.broken.slice(),
       coins: s.coins.slice(),
-      boss: s.boss && { ...s.boss, pos: s.boss.pos && s.boss.pos.slice() },
+      boss: s.boss && {
+        ...s.boss, pos: s.boss.pos && s.boss.pos.slice(),
+        warn: s.boss.warn && s.boss.warn.map((p) => p.slice()), knocked: s.boss.knocked && s.boss.knocked.slice(),
+      },
     };
   }
 
@@ -113,12 +142,19 @@
     let k = pos(s.players[0]) + ';' + pos(s.players[1]) + ';' + s.boxes.filter(Boolean).map(pos).sort().join(' ');
     k += ';' + s.filled.join(' ') + ';' + s.keys.join(',') + ';' + s.taken.join(' ') + ';' + s.unlocked.join(' ');
     k += ';' + Object.keys(s.levers).filter((l) => s.levers[l]).sort().join('') + ';' + s.broken.join(' ') + ';' + s.coins.join(' ') + ';' + s.ptimer;
-    if (s.boss) k += ';' + pos(s.boss.pos) + ',' + s.boss.hp + ',' + s.boss.idx + ',' + (s.boss.armed ? 1 : 0);
+    if (s.boss) {
+      k += ';' + pos(s.boss.pos) + ',' + s.boss.hp + ',' + s.boss.idx + ',' + (s.boss.armed ? 1 : 0) + ',' + (s.boss.t || 0);
+      if (s.boss.warn) k += ',' + s.boss.warn.map(pos).join(' ');
+    }
     return k;
   }
 
   const id = (r, c) => `${r},${c}`;
-  const tileOf = (s, r, c) => { const row = base(s.level).tiles[r]; return row ? row[c] : undefined; };
+  // The arena as it is now: a boss fight may have changed it.
+  const phaseNo = (s) => Math.min(s.boss.hits || 0, base(s.level).phases.length - 1);
+  const tilesOf = (s) => (s.boss ? base(s.level).phaseTiles[phaseNo(s)] : base(s.level).tiles);
+  const phaseOf = (s) => base(s.level).phases[phaseNo(s)];
+  const tileOf = (s, r, c) => { const row = tilesOf(s)[r]; return row ? row[c] : undefined; };
   const heightOf = (s, r, c) => { const row = base(s.level).heights[r]; return row && row[c] !== undefined ? row[c] : 0; };
   const boxAt = (s, r, c) => s.boxes.findIndex((b) => b && b[0] === r && b[1] === c);
   const playerAt = (s, r, c) => s.players.findIndex((p) => p[0] === r && p[1] === c);
@@ -128,7 +164,7 @@
   const addSorted = (list, v) => { list.push(v); list.sort(); };
 
   function platePressed(s, letter) {
-    const tiles = base(s.level).tiles;
+    const tiles = tilesOf(s);
     for (let r = 0; r < tiles.length; r++) {
       for (let c = 0; c < tiles[r].length; c++) {
         if (tiles[r][c] === letter && occupied(s, r, c)) return true;
@@ -324,7 +360,8 @@
     s.moves += 1;
     if (s.boss && s.boss.pos) {
       checkBoss(s);
-      if (s.boss.pos && s.moves % (base(s.level).spec.every || 1) === 0) bossTurn(s);
+      delete s.boss.knocked;
+      if (s.boss.pos && s.moves % (phaseOf(s).every || 1) === 0) bossTurn(s);
       if (s.boss.pos) checkBoss(s);
     }
     s.solved = s.players.every(([pr, pc]) => tileOf(s, pr, pc) === 'E');
@@ -333,27 +370,79 @@
 
   // ---------- Bosses ----------
 
-  const weakTo = (s, kind) => {
-    const spec = base(s.level).spec;
-    if (!spec) return false;
-    // A boss can change its weak spot as it loses lives.
-    const weak = Array.isArray(spec.weak) ? spec.weak[spec.hp - s.boss.hp] : spec.weak;
-    return weak === kind;
-  };
+  const weakTo = (s, kind) => !!s.boss && phaseOf(s).weak === kind;
 
+  // Hit: one life less, and on to the next phase from its own start.
   function hitBoss(s) {
     const b = s.boss;
     b.hp -= 1;
     b.hits = (b.hits || 0) + 1;
     b.idx = 0;
-    b.pos = b.hp > 0 ? base(s.level).bossStart.slice() : null;
+    b.t = 0;
+    b.warn = null;
+    if (b.hp <= 0) { b.pos = null; return; }
+    const ph = phaseOf(s);
+    // Back to its start, or the first free stop of its round; never on top
+    // of somebody.
+    const was = b.pos;
+    b.pos = null;
+    const spots = ph.path ? ph.path.map((p, i) => [p, i]) : [[ph.home, 0], [was, 0]];
+    const [spot, i] = spots.find(([[r, c]]) => !occupied(s, r, c) && bossCanEnter(s, r, c, heightOf(s, r, c))) || [was, 0];
+    b.pos = spot.slice();
+    b.idx = i;
+    for (const [r, c] of ph.boxes || []) if (!occupied(s, r, c)) s.boxes.push([r, c]);
+  }
+
+  // Players the controls belong to: some bosses swap them around.
+  function controlledBy(s, seat) {
+    return s.boss && s.boss.hp > 0 && phaseOf(s).swap ? 1 - seat : seat;
+  }
+
+  // ---------- Boss attacks ----------
+  // Every `every` boss turns it aims at a row, a column or a cross around
+  // one of the players (taking turns), warns for one turn, then strikes:
+  // whoever still stands there is sent back to where they started.
+  function aimAt(s, kind, [pr, pc]) {
+    const tiles = tilesOf(s);
+    const open = (r, c) => tiles[r] && tiles[r][c] !== undefined && tiles[r][c] !== '#' && tiles[r][c] !== 'o';
+    const cells = [];
+    const line = (dr, dc) => {
+      for (let k = 1; open(pr + dr * k, pc + dc * k); k++) cells.push([pr + dr * k, pc + dc * k]);
+    };
+    cells.push([pr, pc]);
+    if (kind === 'row') { line(0, 1); line(0, -1); }
+    else if (kind === 'col') { line(1, 0); line(-1, 0); }
+    else for (const [dr, dc] of STEPS) if (open(pr + dr, pc + dc)) cells.push([pr + dr, pc + dc]);
+    return cells.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  }
+
+  function attackTurn(s) {
+    const b = s.boss;
+    const a = phaseOf(s).attack;
+    if (!a || !b.pos) return;
+    b.t = ((b.t || 0) + 1) % (2 * a.every);
+    if (b.warn) {
+      b.strikes = (b.strikes || 0) + 1;
+      for (const seat of [0, 1]) {
+        const [r, c] = s.players[seat];
+        if (!b.warn.some(([wr, wc]) => wr === r && wc === c)) continue;
+        const home = base(s.level).players[seat];
+        if (!occupied(s, home[0], home[1])) {
+          s.players[seat] = home.slice();
+          (b.knocked = b.knocked || []).push(seat);
+        }
+      }
+      b.warn = null;
+    } else if (b.t % a.every === 0) {
+      b.warn = aimAt(s, a.aim, s.players[Math.floor(b.t / a.every) % 2]);
+    }
   }
 
   // Where may the boss go? Swimmers stay in deep water, walkers on plain
   // ground at their own height (no buttons, holes, pickups or water).
   function bossCanEnter(s, r, c, fromH) {
     const t = tileOf(s, r, c);
-    if (base(s.level).spec.swim) return t === '%';
+    if (phaseOf(s).swim) return t === '%';
     if (heightOf(s, r, c) !== fromH) return false;
     if (t === 'Q') return s.ptimer === 0;
     if (t === 'x') return !s.broken.includes(id(r, c));
@@ -398,19 +487,26 @@
   }
 
   function bossTurn(s) {
-    const spec = base(s.level).spec;
+    walkBoss(s);
+    attackTurn(s);
+  }
+
+  function walkBoss(s) {
+    const spec = phaseOf(s);
     const b = s.boss;
     if (spec.path) {
       // Patrol: the next stop of its round, waiting when the way is blocked.
       const next = spec.path[(b.idx + 1) % spec.path.length];
+      const h = heightOf(s, b.pos[0], b.pos[1]);
+      if (!bossCanEnter(s, next[0], next[1], h) && playerAt(s, next[0], next[1]) < 0) return; // the way is gone: wait
       if (bossMove(s, next[0], next[1]) && b.pos) b.idx = (b.idx + 1) % spec.path.length;
       return;
     }
     // Chase: one step towards the nearest player; with nobody in reach it
     // heads back home. Distances on a flat array, as the solver runs this a lot.
     const h = heightOf(s, b.pos[0], b.pos[1]);
-    const W = base(s.level).tiles[0].length;
-    const H = base(s.level).tiles.length;
+    const W = tilesOf(s)[0].length;
+    const H = tilesOf(s).length;
     const open = (r, c) => r >= 0 && c >= 0 && r < H && c < W && boxAt(s, r, c) < 0 && (bossCanEnter(s, r, c, h) || bossAt(s, r, c));
     const flood = (sources) => {
       const dist = new Int16Array(W * H).fill(-1);
@@ -433,7 +529,7 @@
     let dist = flood(s.players);
     let here = dist[b.pos[0] * W + b.pos[1]];
     if (here < 0) {
-      const home = base(s.level).bossStart;
+      const home = spec.home;
       if (b.pos[0] === home[0] && b.pos[1] === home[1]) return;
       dist = flood([home]);
       here = dist[b.pos[0] * W + b.pos[1]];
@@ -453,7 +549,7 @@
     if (!b.pos) return;
     const [r, c] = b.pos;
     const t = tileOf(s, r, c);
-    const allPressed = (letter) => base(s.level).tiles.every((row, rr) => row.every((tt, cc) => tt !== letter || occupied(s, rr, cc)));
+    const allPressed = (letter) => tilesOf(s).every((row, rr) => row.every((tt, cc) => tt !== letter || occupied(s, rr, cc)));
     // The flower snaps at the moment the last pink button goes down.
     const armed = allPressed('a');
     const snap = armed && !b.armed;
@@ -478,7 +574,7 @@
   //   'h' hole (cracked floor a boss fell through)   'Z' / 'Z+' cage
   //   'Q1' / 'Q0' crumbly bridge up / fallen away
   function view(s) {
-    const tiles = base(s.level).tiles.map((row, r) => row.map((t, c) => {
+    const tiles = tilesOf(s).map((row, r) => row.map((t, c) => {
       if (t === '~') return s.filled.includes(id(r, c)) ? '=' : '~';
       if (t === 'k') return s.taken.includes(id(r, c)) ? '.' : 'k';
       if (t === 'K') return s.unlocked.includes(id(r, c)) ? 'K+' : 'K';
@@ -509,11 +605,17 @@
       keys: s.keys.slice(),
       coins: [s.coins.length, base(s.level).coins],
       ptimer: s.ptimer,
-      boss: s.boss && {
-        ...base(s.level).spec, path: undefined,
-        pos: s.boss.pos && s.boss.pos.slice(), hp: s.boss.hp, maxHp: base(s.level).spec.hp, hits: s.boss.hits || 0,
-        weakNow: s.boss.hp > 0 ? (Array.isArray(base(s.level).spec.weak) ? base(s.level).spec.weak[base(s.level).spec.hp - s.boss.hp] : base(s.level).spec.weak) : null,
-      },
+      boss: s.boss && (() => {
+        const ph = phaseOf(s);
+        return {
+          name: ph.name, look: ph.look, swim: !!ph.swim, say: ph.say || null,
+          pos: s.boss.pos && s.boss.pos.slice(), hp: s.boss.hp, maxHp: base(s.level).spec.hp,
+          hits: s.boss.hits || 0, phase: phaseNo(s), weakNow: s.boss.hp > 0 ? ph.weak : null,
+          hide: s.boss.hp > 0 && !!ph.hide, swap: s.boss.hp > 0 && !!ph.swap,
+          warn: s.boss.warn ? s.boss.warn.map((p) => p.slice()) : null,
+          strikes: s.boss.strikes || 0, knocked: s.boss.knocked ? s.boss.knocked.slice() : [],
+        };
+      })(),
       ptime: P_TIME,
       moves: s.moves,
       solved: s.solved,
@@ -525,7 +627,7 @@
     return view(loadLevel(index));
   }
 
-  const api = { AREAS, ZONES: WORLD.ZONES, LEVELS: AREAS, DIRS, loadLevel, cloneState, stateKey, move, view, preview };
+  const api = { AREAS, ZONES: WORLD.ZONES, LEVELS: AREAS, DIRS, loadLevel, cloneState, stateKey, move, view, preview, controlledBy };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Samen = api;
 })(this);

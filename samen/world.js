@@ -37,7 +37,14 @@
     {
       zone: 'tuin',
       title: 'De Molshoop',
-      boss: { name: 'Graaf Mol', look: 'mol', hp: 3, weak: 'trap', path: [[3, 4], [3, 5], [3, 6], [4, 6], [5, 6], [5, 5], [5, 4], [4, 4]] },
+      boss: {
+        name: 'Graaf Mol', look: 'mol', hp: 3, weak: 'trap', path: [[3, 4], [3, 5], [3, 6], [4, 6], [5, 6], [5, 5], [5, 4], [4, 4]],
+        phases: [
+          {},
+          { path: [[3, 3], [3, 4], [3, 5], [3, 6], [3, 7], [4, 7], [5, 7], [5, 6], [5, 5], [5, 4], [5, 3], [4, 3]], set: { '.': [[3, 5]], 'T': [[5, 5]] }, say: 'Graaf Mol graaft een nieuwe tunnel! De bloem staat nu ergens anders.' },
+          { path: [[4, 3], [5, 3], [5, 4], [5, 5], [5, 6], [5, 7], [4, 7], [3, 7], [3, 6], [3, 5], [3, 4], [3, 3]], attack: { every: 4, aim: 'row' }, say: 'Hij gooit met kluiten aarde! Ga snel van de rode rij af.' },
+        ],
+      },
       tips: [
         'De mol loopt steeds hetzelfde rondje. Ga allebei bij een roze knop staan en stap erop precies als hij op de bloem staat: hap!',
         'De bloem klapt dicht op het moment dat de laatste roze knop ingedrukt wordt. Spreek samen af wanneer: nu!',
@@ -94,7 +101,14 @@
     {
       zone: 'ijs',
       title: 'Het IJspaleis',
-      boss: { name: 'Keizer Brrr', look: 'pinguin', hp: 3, weak: 'crate', under: '_' },
+      boss: {
+        name: 'Keizer Brrr', look: 'pinguin', hp: 3, weak: 'crate', under: '_',
+        phases: [
+          {},
+          { set: { '_': [[5, 2], [5, 3], [5, 4], [5, 5], [5, 6]] }, say: 'Brrr bevriest de vloer! Pas op, het wordt glad.' },
+          { attack: { every: 3, aim: 'col' }, say: 'IJspegels! Ga snel uit de rode kolom.' },
+        ],
+      },
       tips: [
         'Zet de poort open voor Maxi met de roze knop. Brrr glijdt achter je aan: lok hem voor een kist!',
         'Duw een kist het ijs op: hij glijdt door tot hij Brrr raakt. Drie keer raak en de kooi gaat open.',
@@ -149,7 +163,14 @@
     {
       zone: 'grot',
       title: 'De Diepe Grot',
-      boss: { name: 'Rommel de Rotsreus', look: 'golem', hp: 3, weak: 'fall' },
+      boss: {
+        name: 'Rommel de Rotsreus', look: 'golem', hp: 3, weak: 'fall',
+        phases: [
+          {},
+          { boxes: [[4, 8]], say: 'Er valt een rotsblok in de gang! Lok hem er omheen.' },
+          { attack: { every: 4, aim: 'row' }, say: 'Steenlawine! Ga snel van de rode rij af.' },
+        ],
+      },
       tips: [
         'Rommel is te zwaar voor krakende vloer. Kruip door het muizengat en lok hem eroverheen!',
         'Blijf op de blauwe knop staan, dan kan Rommel achter Mini aan. Drie keer erdoor gezakt en hij is verslagen.',
@@ -203,7 +224,14 @@
     {
       zone: 'meer',
       title: 'De Inktpoel',
-      boss: { name: 'Inkie de Inktvis', look: 'inktvis', hp: 3, weak: 'water', swim: true, under: '%' },
+      boss: {
+        name: 'Inkie de Inktvis', look: 'inktvis', hp: 3, weak: 'water', swim: true, under: '%',
+        phases: [
+          {},
+          { attack: { every: 3, aim: 'plus' }, say: 'Inkie spuit inkt! Ontwijk de rode vlekken.' },
+          { home: [4, 2], attack: { every: 2, aim: 'plus' }, say: 'Inkie duikt naar de andere kant en spuit nog sneller!' },
+        ],
+      },
       tips: [
         'Inkie zwemt naar wie aan de waterkant staat. Lok haar onder een kistgoot!',
         'Duw een kist door de goot het water in, precies als Inkie eronder zwemt. Mis je, dan is de kist weg.',
@@ -323,7 +351,14 @@
     {
       zone: 'paddo',
       title: 'De Wankele Brug',
-      boss: { name: 'Draak Knorbert', look: 'draak', hp: 3, weak: 'collapse', path: [[3, 2], [3, 3], [3, 4], [3, 5], [3, 6], [3, 7], [3, 8], [3, 9], [3, 8], [3, 7], [3, 6], [3, 5], [3, 4], [3, 3]] },
+      boss: {
+        name: 'Draak Knorbert', look: 'draak', hp: 3, weak: 'collapse', path: [[3, 2], [3, 3], [3, 4], [3, 5], [3, 6], [3, 7], [3, 8], [3, 9], [3, 8], [3, 7], [3, 6], [3, 5], [3, 4], [3, 3]],
+        phases: [
+          {},
+          { attack: { every: 4, aim: 'row' }, say: 'Vuurballen! Ga snel van de rode rij af.' },
+          { path: [[3, 9], [3, 8], [3, 7], [3, 6], [3, 5], [3, 4], [3, 3], [3, 2], [3, 3], [3, 4], [3, 5], [3, 6], [3, 7], [3, 8]], attack: { every: 3, aim: 'row' }, say: 'Knorbert keert om en spuwt nog sneller!' },
+        ],
+      },
       tips: [
         'Als Maxi het steenblok kapot slaat, kun jij naar de P-knop kruipen. Druk erop als Knorbert op de brug staat!',
         'Sla het steenblok kapot zodat Mini bij de P-knop kan. Dan stort de brug in onder Knorbert.',
@@ -376,7 +411,14 @@
     {
       zone: 'kasteel',
       title: 'De Spookzaal',
-      boss: { name: 'Spookridder Boe', look: 'spook', hp: 3, weak: 'squeeze' },
+      boss: {
+        name: 'Spookridder Boe', look: 'spook', hp: 3, weak: 'squeeze',
+        phases: [
+          {},
+          { hide: true, say: 'Boe is onzichtbaar! Alleen wie het dichtst bij staat ziet hem. Vertel het elkaar!' },
+          { hide: true, home: [5, 5], attack: { every: 4, aim: 'col' }, say: 'Boe spookt overal! IJzige adem in de rode kolom.' },
+        ],
+      },
       tips: [
         'Zet de hendel om voor Maxi. Boe duwt je weg, dus ga met je rug tegen een muur staan en laat Maxi hem van achteren insluiten.',
         'Zet de hendel om voor Mini. Sluit Boe in tussen jullie tweeën, van twee kanten tegelijk!',
@@ -476,7 +518,14 @@
     {
       zone: 'berg',
       title: 'De Sneeuwkam',
-      boss: { name: 'Jeti Joep', look: 'jeti', hp: 3, weak: 'drop' },
+      boss: {
+        name: 'Jeti Joep', look: 'jeti', hp: 3, weak: 'drop',
+        phases: [
+          {},
+          { attack: { every: 4, aim: 'row' }, say: 'Sneeuwballen! Ga snel van de rode rij af.' },
+          { set: { '_': [[4, 3], [4, 4], [4, 5], [4, 6]] }, attack: { every: 3, aim: 'row' }, say: 'Lawine! Beneden is alles glad geworden.' },
+        ],
+      },
       tips: [
         'Jeti Joep komt op je af. Lok hem onder een kist die op de rand staat!',
         'Duw een kist van de rand als Joep eronder staat: bonk! Drie keer.',
@@ -526,7 +575,14 @@
     {
       zone: 'hart',
       title: 'Het Gestolen Hart',
-      boss: { name: 'De Hartendief', look: 'dief', hp: 3, weak: ['trap', 'crate', 'squeeze'] },
+      boss: {
+        name: 'De Hartendief', look: 'dief', hp: 3,
+        phases: [
+          { weak: 'trap' },
+          { weak: 'crate', swap: true, boxes: [[5, 1]], say: 'De Hartendief verwisselt jullie besturing! Jij bestuurt nu je maatje.' },
+          { weak: 'squeeze', attack: { every: 3, aim: 'row' }, say: 'Hartenpijlen! En nu: sluit hem samen in.' },
+        ],
+      },
       tips: [
         'Hij wisselt van zwakke plek: eerst de bloemval (allebei een roze knop), dan een kist, en tot slot samen insluiten.',
         'Zet de hendel om, druk samen de roze knoppen in als hij op de bloem staat, duw dan de kist tegen hem aan en sluit hem tot slot samen in.',

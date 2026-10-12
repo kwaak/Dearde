@@ -209,6 +209,10 @@
   .bossbar b { font-size: 1rem; } .bossbar .lives { color: #ff4d6d; letter-spacing: 2px; margin-left: 6px; }
   .bossbar small { display: block; color: var(--muted); font-size: .8rem; }
   .bossbar.hit { animation: shake .4s; }
+  .banner b { white-space: normal; display: block; max-width: 78vw; }
+  .controls.swapflash .pad { animation: swapflash 1.2s; }
+  @keyframes swapflash { 20%, 60% { transform: scale(1.12) rotate(-4deg); } 40%, 80% { transform: scale(1.12) rotate(4deg); } }
+  .tile.warn { box-shadow: inset 0 0 0 3px #ff3355; background-color: #ffd6dd !important; }
   @keyframes shake { 25% { translate: -6px 0; } 75% { translate: 6px 0; } }
   .tile.trap { background-color: var(--floor); } .tile.trap::after { content: '🌸'; position: absolute; inset: 0; display: grid; place-items: center; font-size: min(4vw, 18px); }
   .tile.deep { background: #2f5fa8; }
@@ -251,7 +255,7 @@
     body.playing .keys { top: 58px; right: 12px; bottom: auto; }
     body.playing .slownet { left: 50%; transform: translateX(-50%); top: 58px; bottom: auto; }
     body.playing .bossbar { top: 58px; bottom: auto; left: 12px; transform: none; text-align: left; }
-    body.playing .banner { top: 56px; }
+    body.playing .banner { top: auto; bottom: 70px; max-width: 54vw; }
     body.playing .controls { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
     body.playing .pad { position: absolute; bottom: max(12px, env(safe-area-inset-bottom)); right: max(16px, env(safe-area-inset-right)); pointer-events: auto;
       grid-template-columns: repeat(3, 58px); grid-template-rows: repeat(3, 58px); gap: 4px; }
@@ -399,6 +403,7 @@
   let renderedLevel = -1;
   let sprites = [];
   let bossSprite = null;
+  let swapped = false; // a boss swapped the controls
   let bossHits = { level: -1, hits: 0 };
   const BOSS_FACES = { mol: '🐹', pinguin: '🐧', golem: '🗿', inktvis: '🦑', draak: '🐲', spook: '👻', jeti: '🐻‍❄️', dief: '😼' };
   const WEAK = {
@@ -463,6 +468,7 @@
   }
 
   function renderTiles(g) {
+    const warned = new Set(g.boss && g.boss.warn ? g.boss.warn.map(String) : []);
     const hilly = g.heights.some((row) => row.some(Boolean));
     const occupied = new Set([...g.boxes.filter(Boolean), ...g.players].map(([r, c]) => `${r},${c}`));
     g.tiles.forEach((row, r) => row.forEach((t, c) => {
@@ -501,6 +507,7 @@
       else if (t === 'h') cls += ' hole';
       else if (t === 'Z' || t === 'Z+') cls += ' cage' + (t === 'Z+' ? ' open' : '');
       else cls += ' floor';
+      if (warned.has(`${r},${c}`)) cls += ' warn';
       el.className = cls;
       // Higher ground is lighter, like sunlit plateaus.
       el.style.filter = hilly && t !== '#' ? `brightness(${0.86 + g.heights[r][c] * 0.07})` : '';
@@ -557,11 +564,18 @@
         }).then(() => { if (state && state.game) render(state); });
       }
     } else {
-      if (g.level !== renderedLevel || !board.firstChild) buildBoard(g);
+      if (g.level !== renderedLevel || !board.firstChild || sprites.length !== g.boxes.length + 2) buildBoard(g);
       renderTiles(g);
       g.boxes.forEach((b, i) => { sprites[i].classList.toggle('hidden', !b); if (b) place(sprites[i], b, g); });
       if (bossSprite) {
-        bossSprite.classList.toggle('hidden', !g.boss.pos);
+        // An invisible boss shows only on the phone of whoever is nearest.
+        let seen = !!g.boss.pos;
+        if (seen && g.boss.hide && mode === 'online') {
+          const dist = g.players.map(([r, c]) => Math.abs(r - g.boss.pos[0]) + Math.abs(c - g.boss.pos[1]));
+          seen = dist[s.you] <= dist[1 - s.you];
+        }
+        bossSprite.classList.toggle('hidden', !seen);
+        bossSprite.style.opacity = g.boss.hide && mode === 'local' ? 0.25 : 1;
         if (g.boss.pos) place(bossSprite, g.boss.pos, g);
       }
       [0, 1].forEach((seat) => {
@@ -628,6 +642,13 @@
 
   function renderBoss(g) {
     const bar = $('bossbar');
+    const swap = !!(g.boss && g.boss.swap);
+    if (swap !== swapped) {
+      swapped = swap;
+      buildControls();
+      if (swap) $('controls').classList.add('swapflash');
+      setTimeout(() => $('controls').classList.remove('swapflash'), 1200);
+    }
     if (!g.boss) { bar.classList.add('hidden'); return; }
     const b = g.boss;
     if (bossHits.level !== g.level) bossHits = { level: g.level, hits: b.hits };
@@ -635,8 +656,15 @@
       bossHits.hits = b.hits;
       vibrate([120, 60, 120]);
       bar.classList.remove('hit'); void bar.offsetWidth; bar.classList.add('hit');
-      if (b.hp > 0) showBanner(`Raak! 💥 Nog ${b.hp} te gaan`, Array.isArray(b.weak) ? 'Let op: nu een andere zwakke plek!' : b.name);
-      else { showBanner(`${b.name} is verslagen! 🎉`, 'De kooi is open, naar de hartjes!'); celebrate('boss' + g.level, 60); }
+      // A new phase: tell what changed once the hit has sunk in.
+      if (b.hp > 0) {
+        showBanner(`Raak! 💥 Nog ${b.hp} te gaan`, b.name);
+        if (b.say) setTimeout(() => showBanner(`${b.name} · fase ${b.phase + 1}`, b.say, 4500), 2200);
+      }
+      else {
+        setTimeout(() => showBanner(`🏆 ${b.name} is verslagen!`, 'De kooi is open: samen naar de hartjes!', 4000), 900);
+        celebrate('boss' + g.level, 90);
+      }
     }
     bar.classList.toggle('hidden', b.hp <= 0);
     bar.innerHTML = `<b>${b.name}</b><span class="lives">${'❤'.repeat(Math.max(0, b.hp))}${'♡'.repeat(Math.max(0, b.maxHp - b.hp))}</span><small>${WEAK[b.weakNow] || ''}</small>`;
@@ -648,12 +676,12 @@
   }
 
   let bannerTimer = null;
-  function showBanner(small, big) {
+  function showBanner(small, big, ms = 2600) {
     $('bannerZone').textContent = small;
     $('bannerTitle').textContent = big;
     $('banner').classList.add('show');
     clearTimeout(bannerTimer);
-    bannerTimer = setTimeout(() => $('banner').classList.remove('show'), 2600);
+    bannerTimer = setTimeout(() => $('banner').classList.remove('show'), ms);
   }
 
   function announce(g, previous) {
@@ -756,11 +784,13 @@
     ctl.classList.toggle('local', mode === 'local');
     const seats = mode === 'local' ? [0, 1] : [state.you];
     for (const seat of seats) {
+      // With swapped controls a pad shows (and moves) the other character.
+      const who = swapped ? 1 - seat : seat;
       const pad = document.createElement('div');
-      pad.className = 'pad' + (use3d ? ' iso' : '');
-      pad.style.setProperty('--pad-color', seat ? 'var(--maxi)' : 'var(--mini)');
-      pad.style.setProperty('--pad-dark', seat ? 'var(--maxi-dark)' : 'var(--mini-dark)');
-      pad.innerHTML = `<span class="label">${charHtml(seat)}</span>` +
+      pad.className = 'pad' + (use3d ? ' iso' : '') + (swapped ? ' swapped' : '');
+      pad.style.setProperty('--pad-color', who ? 'var(--maxi)' : 'var(--mini)');
+      pad.style.setProperty('--pad-dark', who ? 'var(--maxi-dark)' : 'var(--mini-dark)');
+      pad.innerHTML = `<span class="label">${charHtml(who)}</span>` +
         Object.keys(ARROWS).map((d) => `<button class="${d}" data-dir="${d}" aria-label="${d}"><svg viewBox="0 0 24 24" width="28" height="28" style="transform:rotate(${ARROWS[d] + (use3d ? 45 : 0)}deg)"><path d="M12 2l9 10h-5.5v10h-7V12H3z" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></button>`).join('');
       pad.addEventListener('pointerdown', (e) => {
         const b = e.target.closest('button');
@@ -775,7 +805,8 @@
   async function step(seat, dir) {
     if (!state || !state.game || state.finished || state.game.solved) return;
     if (mode === 'local') {
-      if (Samen.move(local, seat, dir)) localTotal += 1; else bump(seat);
+      const who = Samen.controlledBy(local, seat);
+      if (Samen.move(local, who, dir)) localTotal += 1; else bump(who);
       renderLocal();
       return;
     }
@@ -789,16 +820,17 @@
     // Run the move here at once (same rules as the server), so walking never
     // waits for the network; the server confirms it a moment later.
     const ahead = predicted();
-    const sure = Samen.move(ahead, server.you, dir);
+    const who = Samen.controlledBy(ahead, server.you);
+    const sure = Samen.move(ahead, who, dir);
     // A move that fails here may still work on the server: the partner may
     // just have pressed a button, or a boss shoved me. So it is always sent
     // and the server decides; a plain wall bumps right away.
     let unsure = !sure;
     if (!sure) {
-      const [r, c] = ahead.players[server.you];
+      const [r, c] = ahead.players[who];
       const d = Samen.DIRS[dir];
       const row = Samen.AREAS[ahead.level].map[r + d[0]];
-      if (!row || row[c + d[1]] === '#') { bump(seat); unsure = false; }
+      if (!row || row[c + d[1]] === '#') { bump(who); unsure = false; }
     }
     pending.push({ dir, seq: ++seq, at: Date.now(), unsure });
     showPredicted();
@@ -813,7 +845,7 @@
 
   function predicted() {
     const st = Samen.cloneState(server.state);
-    for (const p of pending) Samen.move(st, server.you, p.dir);
+    for (const p of pending) Samen.move(st, Samen.controlledBy(st, server.you), p.dir);
     return st;
   }
 
@@ -831,7 +863,7 @@
     const t0 = Date.now();
     try {
       const res = await api(`/api/rooms/${session.code}/move`, { token: session.token, moves: batch.map(({ dir, seq: n }) => ({ dir, seq: n })) });
-      if (res.results && batch.some((p, i) => p.unsure && res.results[i] === false)) bump(server.you);
+      if (res.results && batch.some((p, i) => p.unsure && res.results[i] === false)) bump(Samen.controlledBy(server.state, server.you));
       $('gameMsg').textContent = '';
       noteSpeed(Date.now() - t0);
     } catch (e) {

@@ -1,7 +1,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert');
-const { AREAS, ZONES, loadLevel, cloneState, stateKey, move } = require('./game');
+const { AREAS, ZONES, loadLevel, cloneState, stateKey, move, view, controlledBy } = require('./game');
 const { solve } = require('./solver');
 
 // Can `seat` reach a heart while the partner stays at the start?
@@ -231,4 +231,43 @@ test('boss: a chasing boss heads home when nobody is in reach', () => {
   s.boss.pos = [1, 4];
   move(s, 1, 'right');
   assert.deepStrictEqual(s.boss.pos, [1, 3]);
+});
+
+test('boss phases: a hit changes the arena, adds crates and moves the boss home', () => {
+  const { s } = scratch(['########', '#M$___G#', '#m.....#', '########'], null, {
+    hp: 3, weak: 'crate', under: '_',
+    phases: [{}, { set: { '_': [[2, 2], [2, 3]] }, boxes: [[2, 6]], home: [1, 5] }],
+  });
+  assert.ok(move(s, 1, 'right')); // the crate slides into the boss
+  assert.strictEqual(s.boss.hp, 2);
+  const v = view(s);
+  assert.strictEqual(v.tiles[2][2], '_', 'the floor froze');
+  assert.ok(s.boxes.some((b) => b && b[0] === 2 && b[1] === 6), 'a new crate');
+  assert.strictEqual(v.boss.phase, 1);
+});
+
+test('boss attacks: one turn of warning, then whoever stands there goes back to start', () => {
+  const { s } = scratch(['#########', '#G......#', '#m.....M#', '#.......#', '#########'], null, {
+    hp: 3, weak: 'squeeze', path: [[1, 1], [1, 2]], attack: { every: 2, aim: 'row' },
+  });
+  s.players[1] = [3, 5];
+  move(s, 0, 'right');
+  assert.ok(!s.boss.warn, 'no warning yet');
+  move(s, 0, 'right'); // aims at Maxi's row
+  assert.deepStrictEqual(s.boss.warn.map(String), ['3,1', '3,2', '3,3', '3,4', '3,5', '3,6', '3,7']);
+  move(s, 0, 'up'); // strike
+  assert.deepStrictEqual(s.players[1], [2, 7], 'Maxi is back at his start');
+  assert.deepStrictEqual(s.players[0], [1, 3], 'Mini was not in the way');
+  assert.deepStrictEqual(view(s).boss.knocked, [1]);
+});
+
+test('boss: some phases swap the controls', () => {
+  const { s } = scratch(['#######', '#m.G.M#', '#.....#', '#######'], null, {
+    hp: 2, weak: 'squeeze', phases: [{}, { swap: true }],
+  });
+  assert.strictEqual(controlledBy(s, 0), 0);
+  s.boss.hp = 1;
+  s.boss.hits = 1;
+  assert.strictEqual(controlledBy(s, 0), 1);
+  assert.strictEqual(controlledBy(s, 1), 0);
 });

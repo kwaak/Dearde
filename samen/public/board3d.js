@@ -962,6 +962,7 @@ export function createBoard3D(container) {
     }
     const { w, h } = size(g.level);
     cam.goal.target.set(offsets[g.level] + (w - 1) / 2, 0, 0);
+    cam.home = cam.goal.target.clone();
     Object.assign(cam.goal, fit(g.level));
     // Areas bigger than the screen get a camera that follows the players.
     cam.full = fit(g.level);
@@ -979,6 +980,123 @@ export function createBoard3D(container) {
 
   // ---------- The boss ----------
   let boss = null;
+  let livePhase = -1;
+  const warnGroup = new THREE.Group();
+  scene.add(warnGroup);
+  let warnKey = '';
+  let lastWarn = null;
+
+  // Red, pulsing tiles one turn before an attack lands.
+  function showWarn(g) {
+    const warn = g.boss && g.boss.warn;
+    const key = warn ? warn.map(String).join(' ') : '';
+    if (key === warnKey) return;
+    warnKey = key;
+    while (warnGroup.children.length) {
+      const m = warnGroup.children.pop();
+      m.geometry.dispose();
+      m.material.dispose();
+    }
+    if (!warn) return;
+    lastWarn = { level: g.level, cells: warn.map((p) => p.slice()) };
+    warn.forEach((cell, i) => {
+      const p = toWorld(g.level, cell);
+      const m = new THREE.Mesh(new THREE.BoxGeometry(0.94, 0.05, 0.94), new THREE.MeshBasicMaterial({ color: 0xff2244, transparent: true, opacity: 0.7, depthWrite: false }));
+      m.position.set(p.x, p.y + 0.05, p.z);
+      warnGroup.add(m);
+      // A floating "!" on every other tile, so a warned line can't be missed.
+      if (i % 2 === 0) {
+        const bang = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.03, 0.26, 10), new THREE.MeshBasicMaterial({ color: 0xff2244, transparent: true }));
+        bang.position.set(p.x, p.y + 0.62, p.z);
+        const dot = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), new THREE.MeshBasicMaterial({ color: 0xff2244, transparent: true }));
+        dot.position.set(p.x, p.y + 0.38, p.z);
+        bang.userData.bang = dot.userData.bang = true;
+        warnGroup.add(bang, dot);
+      }
+    });
+  }
+
+  // What each boss throws, and how: rolling along the line or falling down.
+  const MISSILES = {
+    mol: { color: 0x8a5a3c, size: 0.2, roll: true },
+    pinguin: { color: 0xcdeaff, size: 0.16, roll: false, cone: true },
+    golem: { color: 0x8d8a86, size: 0.28, roll: true },
+    inktvis: { color: 0x6b2fa8, size: 0.2, roll: false },
+    draak: { color: 0xff7a1a, size: 0.22, roll: true, glow: true },
+    spook: { color: 0x9fd8ff, size: 0.2, roll: true, glow: true },
+    jeti: { color: 0xffffff, size: 0.26, roll: true },
+    dief: { color: 0xff4d6d, size: 0.18, roll: true, glow: true },
+  };
+
+  function strike(look, cells, level) {
+    const kind = MISSILES[look] || MISSILES.mol;
+    const pts = cells.map((c) => toWorld(level, c));
+    const make = () => {
+      const geo = kind.cone ? new THREE.ConeGeometry(kind.size * 0.6, kind.size * 2.4, 12) : new THREE.SphereGeometry(kind.size, 20, 14);
+      const m = new THREE.Mesh(geo, mat(kind.color, kind.glow ? { emissive: kind.color, emissiveIntensity: 0.9 } : { roughness: 0.6 }));
+      if (kind.cone) m.rotation.x = Math.PI;
+      m.castShadow = true;
+      scene.add(m);
+      return m;
+    };
+    const now = performance.now();
+    if (kind.roll) {
+      // One missile rolling the whole line, from the end nearest the boss.
+      const start = boss ? boss.obj.position : pts[0];
+      const ordered = pts.slice().sort((a, b) => a.distanceTo(start) - b.distanceTo(start));
+      missiles.push({ mesh: make(), path: ordered, t0: now, dur: 120 * ordered.length + 200, roll: true });
+    } else {
+      pts.forEach((p, i) => missiles.push({ mesh: make(), path: [p.clone().add(new THREE.Vector3(0, 3, 0)), p], t0: now + i * 70, dur: 380, roll: false }));
+    }
+  }
+  const missiles = [];
+  function animateMissiles(now) {
+    for (let i = missiles.length - 1; i >= 0; i--) {
+      const m = missiles[i];
+      const t = (now - m.t0) / m.dur;
+      if (t < 0) { m.mesh.visible = false; continue; }
+      m.mesh.visible = true;
+      const p = along(m.path, Math.min(1, t));
+      if (m.roll) { p.y += 0.25; m.mesh.rotation.x += 0.3; }
+      m.mesh.position.copy(p);
+      if (t >= 1) {
+        warpFx(m.path[m.path.length - 1], m.mesh.material.color.getHex());
+        scene.remove(m.mesh);
+        m.mesh.geometry.dispose();
+        m.mesh.material.dispose();
+        missiles.splice(i, 1);
+      }
+    }
+  }
+
+  // Hearts bursting out of the opened cage.
+  function heartBurst(at) {
+    for (let i = 0; i < 10; i++) {
+      const h = new THREE.Mesh(new THREE.ExtrudeGeometry(heartShape(), { depth: 0.05, bevelEnabled: false }), mat(COLORS.heart, { emissive: COLORS.heart, emissiveIntensity: 0.4 }));
+      h.geometry.center();
+      h.scale.setScalar(0.22 + Math.random() * 0.12);
+      h.position.copy(at);
+      h.userData.v = new THREE.Vector3((Math.random() - 0.5) * 1.6, 2.2 + Math.random() * 1.6, (Math.random() - 0.5) * 1.6);
+      h.visible = false;
+      scene.add(h);
+      hearts.push({ mesh: h, t0: performance.now() + 900 + i * 60 });
+    }
+  }
+  const hearts = [];
+  function animateHeartBurst(now) {
+    for (let i = hearts.length - 1; i >= 0; i--) {
+      const h = hearts[i];
+      const t = (now - h.t0) / 1000;
+      if (t < 0) continue;
+      h.mesh.visible = true;
+      h.mesh.position.addScaledVector(h.mesh.userData.v, 1 / 60);
+      h.mesh.userData.v.y -= 2.5 / 60;
+      h.mesh.rotation.y += 0.1;
+      h.mesh.material.transparent = true;
+      h.mesh.material.opacity = Math.max(0, 1 - t / 1.6);
+      if (t > 1.6) { scene.remove(h.mesh); h.mesh.geometry.dispose(); h.mesh.material.dispose(); hearts.splice(i, 1); }
+    }
+  }
 
   function placeBoss(level, pos) {
     const p = toWorld(level, pos);
@@ -992,22 +1110,41 @@ export function createBoard3D(container) {
     const obj = BOSS_MAKERS[g.boss.look]();
     obj.rotation.y = Math.PI / 4;
     obj.scale.setScalar(BOSS_SIZE);
-    boss = { obj, look: g.boss.look, swim: !!g.boss.swim, hits: g.boss.hits, path: [], t0: 0, dur: 1, hop: 0, level: g.level };
+    boss = { obj, look: g.boss.look, swim: !!g.boss.swim, hits: g.boss.hits, strikes: g.boss.strikes, path: [], t0: 0, dur: 1, hop: 0, level: g.level };
     obj.position.copy(placeBoss(g.level, g.boss.pos));
     boss.path = [obj.position.clone()];
     scene.add(obj);
-    obj.traverse((o) => { if (o.material && o.material.emissive) o.userData.glow = [o.material.emissive.getHex(), o.material.emissiveIntensity]; });
+    obj.traverse((o) => {
+      if (!o.material) return;
+      o.material.userData.baseOpacity = o.material.opacity;
+      if (o.material.emissive) o.userData.glow = [o.material.emissive.getHex(), o.material.emissiveIntensity];
+    });
   }
 
   function updateBoss(g) {
-    if (!boss || !g.boss) return;
+    if (!g.boss) { showWarn(g); return; }
+    if (boss && g.boss.strikes > (boss.strikes || 0) && lastWarn && lastWarn.level === g.level) strike(boss.look, lastWarn.cells, g.level);
+    if (boss) boss.strikes = g.boss.strikes;
+    showWarn(g);
+    if (!boss) return;
+    // Invisible bosses: only the nearest player sees them (both, when sharing a phone, see a shimmer).
+    if (g.boss.hide && g.boss.pos) {
+      const dist = g.players.map(([r, c]) => Math.abs(r - g.boss.pos[0]) + Math.abs(c - g.boss.pos[1]));
+      boss.hideMode = you < 0 ? 'faint' : dist[you] <= dist[1 - you] ? 'none' : 'hidden';
+    } else boss.hideMode = 'none';
     const now = performance.now();
+    if (g.boss.hits > boss.hits && g.boss.hp <= 0) {
+      // The finale: zoom in on the boss, then hearts fly out of the cage.
+      cam.focus = { at: boss.obj.position.clone(), until: now + 2600 };
+      if (live) for (const h of live.hearts) heartBurst(new THREE.Vector3(h.x, h.base + 0.5, h.z));
+    }
     if (g.boss.hits > boss.hits) {
       // Hit! Flash, puff, and pop back up at the start (or vanish for good).
       boss.hits = g.boss.hits;
       boss.hitAt = now;
       boss.from = boss.obj.position.clone();
       boss.to = g.boss.pos ? placeBoss(g.level, g.boss.pos) : null;
+      boss.hideMode = 'none';
       if (live) for (const tr of live.traps) tr.at = now;
       return;
     }
@@ -1056,6 +1193,17 @@ export function createBoard3D(container) {
       }
       return;
     }
+    o.visible = boss.hideMode !== 'hidden';
+    if (boss.hideMode === 'faint' || boss.faint) {
+      const faint = boss.hideMode === 'faint';
+      boss.faint = faint;
+      o.traverse((m) => {
+        if (!m.material) return;
+        const base = m.material.userData.baseOpacity;
+        m.material.transparent = faint || base < 1;
+        m.material.opacity = faint ? 0.12 + 0.08 * Math.sin(now / 200) : base;
+      });
+    }
     const t = Math.min(1, Math.max(0, (now - boss.t0) / boss.dur));
     const p = along(boss.path, t);
     p.y += boss.hop * Math.abs(Math.sin(Math.PI * t)) + Math.sin(now / 380) * (boss.swim ? 0.04 : 0.02);
@@ -1090,6 +1238,14 @@ export function createBoard3D(container) {
 
   function update(g, me) {
     you = me;
+    // A boss phase may change the arena: rebuild the area where we stand.
+    if (g.level === current && g.boss && livePhase !== g.boss.phase) {
+      const entry = groups.get(g.level);
+      if (entry) dispose(entry.group);
+      groups.set(g.level, buildArea(g.level, g, true));
+      live = groups.get(g.level).parts;
+    }
+    livePhase = g.boss ? g.boss.phase : -1;
     const travelling = current >= 0 && g.level === current + 1;
     if (g.level !== current) {
       setLevel(g);
@@ -1123,6 +1279,12 @@ export function createBoard3D(container) {
       players.forEach((p, seat) => {
         const target = toWorld(g.level, g.players[seat]);
         if (p.warp) { p.warp.to = target; return; }
+        if (g.boss && g.boss.knocked.includes(seat)) {
+          // Hit by an attack: whisked back to the start.
+          p.grid = g.players[seat].slice();
+          p.warp = { from: p.obj.position.clone(), to: target, t0: performance.now() + 250, stage: 0 };
+          return;
+        }
         const from = p.grid;
         p.grid = g.players[seat].slice();
         const [r, c] = g.players[seat];
@@ -1379,6 +1541,12 @@ export function createBoard3D(container) {
       });
       animateEffects(now);
       animateBoss(now);
+      animateMissiles(now);
+      animateHeartBurst(now);
+      for (const m of warnGroup.children) {
+        m.material.opacity = m.userData.bang ? 1 : 0.55 + 0.3 * Math.sin(now / 110);
+        if (m.userData.bang) m.position.y += Math.sin(now / 90) * 0.004;
+      }
       for (let i = debris.length - 1; i >= 0; i--) {
         const d = debris[i];
         const t = (now - d.t0) / 1000;
@@ -1462,6 +1630,14 @@ export function createBoard3D(container) {
 
       // Glide the camera towards the current area (or the players in it).
       followPlayers(current);
+      if (cam.focus && now < cam.focus.until) {
+        cam.goal.target.copy(cam.focus.at).setY(0);
+        cam.goal.hw = 3.2;
+        cam.goal.hh = 3.2;
+      } else if (cam.focus) {
+        cam.focus = null;
+        if (!cam.follow) { Object.assign(cam.goal, cam.full); cam.goal.target.copy(cam.home); }
+      }
       cam.target.lerp(cam.goal.target, 0.06);
       cam.hw += (cam.goal.hw - cam.hw) * 0.06;
       cam.hh += (cam.goal.hh - cam.hh) * 0.06;
