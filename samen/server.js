@@ -39,6 +39,7 @@ function createRoom(start) {
     game: loadLevel(start),
     finished: false, // the whole world is done
     totalMoves: 0,
+    acked: [0, 0], // last move number processed per seat
     clients: new Set(), // { res, seat }
     touched: Date.now(),
   };
@@ -95,6 +96,7 @@ function loadRooms() {
       game,
       finished: !!d.finished,
       totalMoves: d.totalMoves || 0,
+      acked: [0, 0],
       clients: new Set(),
       touched: d.touched || Date.now(),
     });
@@ -130,6 +132,8 @@ function publicState(room, seat) {
     game: view(room.game),
     finished: room.finished,
     totalMoves: room.totalMoves,
+    state: room.game, // the full puzzle state, so phones can run their own moves ahead
+    acked: room.acked,
     mover: room.mover === undefined ? -1 : room.mover, // whose move led here (for sounds)
   };
 }
@@ -316,12 +320,25 @@ async function handleApi(req, res, url) {
 
   if (action === 'move') {
     if (!room.players[1]) return send(res, 409, { error: 'Wacht op je maatje' });
-    if (room.finished || !move(room.game, seat, String(body.dir))) return send(res, 200, { ok: false });
-    room.totalMoves += 1;
-    room.mover = seat;
-    if (room.game.solved) scheduleAdvance(room);
-    broadcast(room);
-    return send(res, 200, { ok: true });
+    // Phones show their own moves straight away and send every move not yet
+    // confirmed, in order; `acked` tells them which ones are done.
+    const moves = Array.isArray(body.moves) ? body.moves.slice(0, 20) : [{ dir: body.dir, seq: body.seq }];
+    let changed = false;
+    const results = moves.map((m) => {
+      // Phones resend every move until it is confirmed: skip ones already done.
+      if (Number.isFinite(m.seq) && m.seq <= room.acked[seat]) return null;
+      const ok = !room.finished && !room.game.solved && move(room.game, seat, String(m.dir));
+      if (Number.isFinite(m.seq)) room.acked[seat] = m.seq;
+      if (ok) {
+        changed = true;
+        room.totalMoves += 1;
+        room.mover = seat;
+        if (room.game.solved) scheduleAdvance(room);
+      }
+      return ok;
+    });
+    if (changed || moves.some((m) => Number.isFinite(m.seq))) broadcast(room);
+    return send(res, 200, { ok: results[results.length - 1], results });
   }
 
   if (action === 'restart') {

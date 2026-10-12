@@ -51,6 +51,13 @@ peak harder than the one before.
 
 The start screen lets you pick the area to begin in.
 
+Online, a phone does not wait for the server to show its own player's
+step: it runs the move with the same rules (`game.js`) and shows it at
+once, then sends every move the server has not confirmed yet. The server
+skips moves it already did, so order and resends don't matter, and tells
+each phone how far it got; a phone replays its unconfirmed moves on top of
+every state it receives. On a slow connection a small 📶 sign shows up.
+
 Progress is saved after every step, in `DATA_DIR` (default `./data`) on the
 server, and in the browser for the one-phone mode. Opening the game later
 offers *Verder spelen*. On another phone you enter the code and pick who you

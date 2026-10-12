@@ -202,6 +202,7 @@
   .tile.stair { background-image: repeating-linear-gradient(90deg, transparent 0 30%, rgba(0,0,0,.12) 30% 33%); }
   .tile.pipe, .tile.spring, .tile.coin, .tile.pswitch { box-shadow: inset 0 0 0 1px var(--floor-edge); background-color: var(--floor); }
 
+  .slownet { position: absolute; left: 10px; bottom: 10px; z-index: 4; background: rgba(255,255,255,.9); border-radius: 999px; padding: 4px 12px; font-size: .85rem; color: var(--muted); }
   /* Bosses */
   .bossbar { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); z-index: 4; background: rgba(255,255,255,.92); border-radius: 18px;
     padding: 6px 14px; text-align: center; box-shadow: 0 6px 18px rgba(120,80,160,.2); white-space: nowrap; }
@@ -248,6 +249,7 @@
     body.playing .topbar .lvl { order: 0; }
     body.playing #tips { position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); width: min(54vw, 520px); z-index: 6; align-items: center; }
     body.playing .keys { top: 58px; right: 12px; bottom: auto; }
+    body.playing .slownet { left: 50%; transform: translateX(-50%); top: 58px; bottom: auto; }
     body.playing .bossbar { top: 58px; bottom: auto; left: 12px; transform: none; text-align: left; }
     body.playing .banner { top: 56px; }
     body.playing .controls { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
@@ -338,6 +340,7 @@
       <div class="board3d hidden" id="board3d"></div>
       <div class="banner" id="banner"><small id="bannerZone"></small><b id="bannerTitle"></b></div>
       <div class="keys hidden" id="keys"></div>
+      <div class="slownet hidden" id="slowNet">📶 Trage verbinding</div>
       <div class="bossbar hidden" id="bossbar"></div>
       <div class="overlay hidden" id="overlay"></div>
     </div>
@@ -776,10 +779,82 @@
       renderLocal();
       return;
     }
+    if (!server || !server.state) {
+      try {
+        const res = await api(`/api/rooms/${session.code}/move`, { token: session.token, dir });
+        if (!res.ok) bump(seat);
+      } catch (e) { $('gameMsg').textContent = e.message; }
+      return;
+    }
+    // Run the move here at once (same rules as the server), so walking never
+    // waits for the network; the server confirms it a moment later.
+    const ahead = predicted();
+    const sure = Samen.move(ahead, server.you, dir);
+    // A move that fails here may still work on the server: the partner may
+    // just have pressed a button, or a boss shoved me. So it is always sent
+    // and the server decides; a plain wall bumps right away.
+    let unsure = !sure;
+    if (!sure) {
+      const [r, c] = ahead.players[server.you];
+      const d = Samen.DIRS[dir];
+      const row = Samen.AREAS[ahead.level].map[r + d[0]];
+      if (!row || row[c + d[1]] === '#') { bump(seat); unsure = false; }
+    }
+    pending.push({ dir, seq: ++seq, at: Date.now(), unsure });
+    showPredicted();
+    flush();
+  }
+
+  // ---------- Moves ahead of the server ----------
+  let server = null;  // the last state from the server
+  let pending = [];   // my moves the server has not confirmed yet
+  let seq = Date.now(); // move numbers, rising even across reloads
+  let slowSince = 0;
+
+  function predicted() {
+    const st = Samen.cloneState(server.state);
+    for (const p of pending) Samen.move(st, server.you, p.dir);
+    return st;
+  }
+
+  function showPredicted() {
+    if (!pending.length) return render(server);
+    render({ ...server, game: Samen.view(predicted()), mover: server.you });
+  }
+
+  // Sends every move the server has not confirmed yet, in order, straight
+  // away. A later request carries the earlier moves too, so nothing depends
+  // on requests arriving in order; the server skips what it already did.
+  async function flush() {
+    const batch = pending.slice();
+    if (!batch.length || !session) return;
+    const t0 = Date.now();
     try {
-      const res = await api(`/api/rooms/${session.code}/move`, { token: session.token, dir });
-      if (!res.ok) bump(seat);
-    } catch (e) { $('gameMsg').textContent = e.message; }
+      const res = await api(`/api/rooms/${session.code}/move`, { token: session.token, moves: batch.map(({ dir, seq: n }) => ({ dir, seq: n })) });
+      if (res.results && batch.some((p, i) => p.unsure && res.results[i] === false)) bump(server.you);
+      $('gameMsg').textContent = '';
+      noteSpeed(Date.now() - t0);
+    } catch (e) {
+      $('gameMsg').textContent = e.message;
+      noteSpeed(9999);
+      setTimeout(() => { if (pending.length) flush(); }, 1000);
+    }
+  }
+
+  // A little sign when the connection is slow, so you know it's the wifi.
+  function noteSpeed(ms) {
+    if (ms > 450) slowSince = slowSince || Date.now();
+    else slowSince = 0;
+    $('slowNet').classList.toggle('hidden', !slowSince);
+  }
+
+  function onServerState(s) {
+    server = s;
+    const done = (s.acked && s.acked[s.you]) || 0;
+    // Drop what the server has done, and anything stuck for too long.
+    pending = pending.filter((p) => p.seq > done && Date.now() - p.at < 8000);
+    if (!s.players || !s.players[1] || !s.game) return render(s);
+    showPredicted();
   }
 
   document.addEventListener('keydown', (e) => {
@@ -834,6 +909,7 @@
       return;
     }
     if (action === 'again') lastSolvedKey = null;
+    pending = []; // a fresh start: moves still on their way no longer apply
     api(`/api/rooms/${session.code}/${action}`, { token: session.token })
       .catch((e) => { $('gameMsg').textContent = e.message; });
   }
@@ -844,6 +920,8 @@
 
   function startOnline(code, token, seat) {
     session = { code, token };
+    server = null;
+    pending = [];
     store.set('samen.room.' + code, token);
     store.set('samen.last', code);
     renderedLevel = -1;
@@ -853,7 +931,7 @@
     state = { you: seat };
     if (events) events.close();
     events = new EventSource(`/api/rooms/${code}/events?token=${encodeURIComponent(token)}`);
-    events.onmessage = (e) => render(JSON.parse(e.data));
+    events.onmessage = (e) => onServerState(JSON.parse(e.data));
     events.onerror = () => {
       if (events.readyState === EventSource.CLOSED) $('gameMsg').textContent = 'Verbinding verbroken. Ververs de pagina.';
     };
@@ -946,7 +1024,7 @@
 
   function leave() {
     if (events) { events.close(); events = null; }
-    mode = null; state = null; session = null;
+    mode = null; state = null; session = null; server = null; pending = [];
     history.replaceState(null, '', location.pathname);
     show('lobby');
   }
