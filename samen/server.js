@@ -108,6 +108,7 @@ function scheduleAdvance(room) {
   const level = room.game.level;
   setTimeout(() => {
     if (room.game.level !== level || !room.game.solved) return;
+    room.mover = -1;
     if (level + 1 < AREAS.length) room.game = loadLevel(level + 1);
     else room.finished = true;
     broadcast(room);
@@ -129,6 +130,7 @@ function publicState(room, seat) {
     game: view(room.game),
     finished: room.finished,
     totalMoves: room.totalMoves,
+    mover: room.mover === undefined ? -1 : room.mover, // whose move led here (for sounds)
   };
 }
 
@@ -316,6 +318,7 @@ async function handleApi(req, res, url) {
     if (!room.players[1]) return send(res, 409, { error: 'Wacht op je maatje' });
     if (room.finished || !move(room.game, seat, String(body.dir))) return send(res, 200, { ok: false });
     room.totalMoves += 1;
+    room.mover = seat;
     if (room.game.solved) scheduleAdvance(room);
     broadcast(room);
     return send(res, 200, { ok: true });
@@ -324,6 +327,7 @@ async function handleApi(req, res, url) {
   if (action === 'restart') {
     if (room.game.solved) return send(res, 200, { ok: false });
     room.game = loadLevel(room.game.level);
+    room.mover = -1;
     broadcast(room);
     return send(res, 200, { ok: true });
   }
@@ -351,6 +355,11 @@ const server = http.createServer((req, res) => {
     // The browser uses the same rules and world for drawing and for the
     // one-phone mode.
     return sendFile(req, res, path.join(__dirname, url.pathname.slice(1)), 0);
+  }
+  if (url.pathname === '/api/time') {
+    // For the music: every phone syncs its clock to this one, so they all
+    // play the same beat at the same moment.
+    return send(res, 200, { now: Date.now() });
   }
   if (url.pathname.startsWith('/api/')) {
     return handleApi(req, res, url).catch((err) => {

@@ -64,6 +64,21 @@ screen and the joypads float over it (one in each corner when two people
 share one phone). Each phone only shows
 its own player's hint, behind a 💡 button, so you have to talk to each other.
 
+## Music and sounds
+
+`public/sound.js` synthesises everything with the Web Audio API, so there
+are no audio files: a soft original tune for every zone, a livelier one for
+the bosses, and a sound for every action (steps, crates, splashes, doors,
+levers, keys, pipes, springs, coins, the P-switch, bosses, cages, ...).
+
+The music is joined rather than started: each song loops on a grid hung
+off the server's clock (`/api/time`, synced with the lowest of a few round
+trips) and notes are scheduled ahead on the sample-accurate audio clock,
+corrected for output latency. Two phones therefore always play the same
+note at the same time, whenever each of them joined. Online, each phone
+plays the sound effects of its own player's moves, so nothing echoes. The
+🔊 button cycles through music and sounds, sounds only, and silence.
+
 ## Local development
 
 ```bash

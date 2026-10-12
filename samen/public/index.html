@@ -328,6 +328,7 @@
       <button class="iconbtn" id="leaveBtn" aria-label="Stoppen">✕</button>
       <div class="lvl center"><small id="levelNum"></small><b id="levelTitle"></b></div>
       <button class="iconbtn hidden" id="fsBtn" aria-label="Volledig scherm">⛶</button>
+      <button class="iconbtn" id="soundBtn" aria-label="Geluid">🔊</button>
       <button class="iconbtn" id="restartBtn" aria-label="Opnieuw">↺</button>
     </div>
     <div class="stars" id="stars"></div>
@@ -361,6 +362,19 @@
     } catch { return false; }
   })();
   const board3dModule = use3d ? import('./board3d.js') : null;
+
+  // Music and sounds load alongside too; browsers only let them play after
+  // a tap, so every tap tries to wake them up.
+  let snd = null;
+  const SOUND_ICONS = { all: '🔊', sfx: '🔉', off: '🔇' };
+  import('./sound.js').then((m) => {
+    snd = m;
+    snd.setMode(store.get('samen.sound') || 'all');
+    $('soundBtn').textContent = SOUND_ICONS[snd.getMode()];
+    if (state && state.game && !$('game').classList.contains('hidden')) snd.setScene(state.game);
+  }).catch(() => $('soundBtn').classList.add('hidden'));
+  for (const ev of ['pointerdown', 'keydown']) document.addEventListener(ev, () => { if (snd) snd.unlock(); }, true);
+  let heard = null; // the last view the sounds were worked out from
   let b3 = null, b3Pending = null;
   if (use3d) { $('board').classList.add('hidden'); $('board3d').classList.remove('hidden'); }
   const store = {
@@ -403,6 +417,7 @@
     document.body.classList.toggle('playing', screen === 'game');
     if (b3) b3.resize();
     if (screen === 'game') updateFullscreenButton(); else exitFullscreen();
+    if (screen !== 'game' && snd) { snd.setScene(null); heard = null; }
   }
 
   // ---------- Board ----------
@@ -520,6 +535,13 @@
       hintLevel = -1;
     }
     document.body.dataset.zone = g.zone;
+    if (snd) {
+      // Online, each phone plays the sounds of its own player's moves; the
+      // music plays on both, in step.
+      snd.observe(heard, g, mode === 'local' || s.mover === undefined || s.mover === s.you);
+      snd.setScene(g);
+    }
+    heard = g;
     if (use3d) {
       if (b3) b3.update(g, mode === 'online' ? s.you : -1);
       else if (!b3Pending) {
@@ -656,6 +678,7 @@
   $('tips').addEventListener('click', (e) => {
     if (!e.target.closest('#hintBtn') || !state || !state.game) return;
     hintLevel = state.game.level;
+    if (snd) snd.sfx('click');
     render(state);
   });
 
@@ -716,6 +739,7 @@
 
   function bump(seat) {
     vibrate(20);
+    if (snd) snd.sfx('bump');
     if (use3d) { if (b3) b3.bump(seat); return; }
     const sp = sprites[state.game.boxes.length + seat];
     if (!sp) return;
@@ -927,6 +951,16 @@
     show('lobby');
   }
   $('restartBtn').onclick = () => act('restart');
+  $('soundBtn').onclick = () => {
+    if (!snd) return;
+    const next = { all: 'sfx', sfx: 'off', off: 'all' }[snd.getMode()];
+    snd.unlock();
+    snd.setMode(next);
+    store.set('samen.sound', next);
+    $('soundBtn').textContent = SOUND_ICONS[next];
+    if (state && state.game) snd.setScene(state.game);
+    showBanner('Geluid', { all: 'Muziek en geluid aan', sfx: 'Alleen geluidjes', off: 'Alles uit' }[next]);
+  };
   $('leaveBtn').onclick = () => { if (confirm('Wil je stoppen met spelen?')) leave(); };
   $('cancelBtn').onclick = leave;
 
