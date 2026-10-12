@@ -4,6 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="theme-color" content="#ffe3d3">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
 <title>Samen 💞</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💞</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -239,6 +244,8 @@
     body.playing .topbar .lvl b { font-size: 1rem; } body.playing .topbar .lvl small { font-size: .75rem; }
     body.playing .iconbtn { width: 40px; height: 40px; font-size: 1.1rem; }
     body.playing .stars, body.playing #footHint { display: none; }
+    body.playing .topbar { gap: 8px; }
+    body.playing .topbar .lvl { order: 0; }
     body.playing #tips { position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); width: min(54vw, 520px); z-index: 6; align-items: center; }
     body.playing .keys { top: 58px; right: 12px; bottom: auto; }
     body.playing .bossbar { top: 58px; bottom: auto; left: 12px; transform: none; text-align: left; }
@@ -320,6 +327,7 @@
     <div class="topbar">
       <button class="iconbtn" id="leaveBtn" aria-label="Stoppen">✕</button>
       <div class="lvl center"><small id="levelNum"></small><b id="levelTitle"></b></div>
+      <button class="iconbtn hidden" id="fsBtn" aria-label="Volledig scherm">⛶</button>
       <button class="iconbtn" id="restartBtn" aria-label="Opnieuw">↺</button>
     </div>
     <div class="stars" id="stars"></div>
@@ -394,6 +402,7 @@
     $('hero').classList.toggle('hidden', screen === 'game');
     document.body.classList.toggle('playing', screen === 'game');
     if (b3) b3.resize();
+    if (screen === 'game') updateFullscreenButton(); else exitFullscreen();
   }
 
   // ---------- Board ----------
@@ -560,6 +569,7 @@
       ? seats.map((seat) => `<div class="tip">${charHtml(seat)}<p><b>${mode === 'local' ? NAMES[seat] : 'Hint voor ' + NAMES[seat]}</b>${g.tips[seat]}</p></div>`).join('')
       : '<button class="hintbtn" id="hintBtn">💡 Hint</button>';
     $('footHint').textContent = 'Kom samen bij de hartjes ❤';
+    updateSafeArea();
 
     const ov = $('overlay');
     if (s.finished) {
@@ -650,6 +660,59 @@
   });
 
   window.addEventListener('resize', () => { if (state && state.game && !$('game').classList.contains('hidden')) render(state); });
+
+  // ---------- Phone held sideways ----------
+  const sideways = matchMedia('(orientation: landscape) and (max-height: 540px)');
+
+  // Tell the 3D world which part of the screen is free of joypads and title.
+  function updateSafeArea() {
+    if (!b3) return;
+    if (!sideways.matches) return b3.setSafeArea(null);
+    const box = $('board3d').getBoundingClientRect();
+    let x0 = box.left + 8, x1 = box.right - 8, y1 = box.bottom - 8;
+    const y0 = Math.max(box.top + 8, document.querySelector('.topbar').getBoundingClientRect().bottom + 6);
+    for (const pad of document.querySelectorAll('#controls .pad')) {
+      const r = pad.getBoundingClientRect();
+      if (r.left + r.width / 2 < box.left + box.width / 2) x0 = Math.max(x0, r.right + 6);
+      else x1 = Math.min(x1, r.left - 6);
+    }
+    const tips = $('tips').getBoundingClientRect();
+    if (tips.height && tips.top > box.top + box.height / 2) y1 = Math.min(y1, tips.top - 4);
+    b3.setSafeArea({ x0: x0 - box.left, x1: x1 - box.left, y0: y0 - box.top, y1: y1 - box.top });
+  }
+
+  // Full screen: no address bar eating a quarter of the height. Browsers
+  // only allow it after a tap, so the first tap in the game asks for it.
+  const root = document.documentElement;
+  const canFullscreen = !!(root.requestFullscreen || root.webkitRequestFullscreen);
+  const isFullscreen = () => !!(document.fullscreenElement || document.webkitFullscreenElement)
+    || matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches;
+  let fullscreenDeclined = false;
+  function enterFullscreen() {
+    try {
+      const p = root.requestFullscreen ? root.requestFullscreen({ navigationUI: 'hide' }) : root.webkitRequestFullscreen();
+      if (p && p.catch) p.catch(() => {});
+    } catch {}
+  }
+  function exitFullscreen() {
+    if (!document.fullscreenElement && !document.webkitFullscreenElement) return;
+    try { (document.exitFullscreen || document.webkitExitFullscreen).call(document); } catch {}
+  }
+  function updateFullscreenButton() {
+    $('fsBtn').classList.toggle('hidden', !canFullscreen || !sideways.matches || isFullscreen());
+  }
+  for (const ev of ['fullscreenchange', 'webkitfullscreenchange']) {
+    document.addEventListener(ev, () => {
+      // Left full screen on purpose: stop asking on every tap.
+      if (!document.fullscreenElement && !document.webkitFullscreenElement) fullscreenDeclined = true;
+      updateFullscreenButton();
+    });
+  }
+  sideways.addEventListener('change', updateFullscreenButton);
+  $('fsBtn').onclick = () => { fullscreenDeclined = false; enterFullscreen(); };
+  $('game').addEventListener('pointerdown', (e) => {
+    if (canFullscreen && sideways.matches && !isFullscreen() && !fullscreenDeclined && !e.target.closest('#leaveBtn')) enterFullscreen();
+  }, true);
 
   function bump(seat) {
     vibrate(20);

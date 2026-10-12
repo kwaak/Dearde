@@ -1,0 +1,15 @@
+{
+  "name": "Samen",
+  "short_name": "Samen",
+  "description": "Een puzzelwereld voor twee, op twee telefoons of samen op één.",
+  "lang": "nl",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#ffe3d3",
+  "theme_color": "#ffe3d3",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

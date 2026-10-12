@@ -1233,6 +1233,15 @@ export function createBoard3D(container) {
     const h = container.clientHeight || 300;
     renderer.setSize(w, h, false);
     cam.aspect = w / h;
+    cam.w = w;
+    cam.h = h;
+  }
+
+  // The part of the canvas (in pixels) the world should fit in, or null for
+  // all of it.
+  let safe = null;
+  function setSafeArea(rect) {
+    safe = rect && rect.x1 - rect.x0 > 80 && rect.y1 - rect.y0 > 80 ? rect : null;
   }
 
   function along(path, t) {
@@ -1458,12 +1467,18 @@ export function createBoard3D(container) {
       cam.hh += (cam.goal.hh - cam.hh) * 0.06;
       camera.position.copy(cam.target).addScaledVector(DIR, 40);
       camera.lookAt(cam.target);
-      let halfW = cam.hw, halfH = cam.hh;
-      // Sideways phone: leave the corners free for the floating joypads and
-      // the top for the title.
-      if (cam.aspect > 1.3) { halfW /= 0.64; halfH /= 0.84; }
-      if (halfW / halfH > cam.aspect) halfH = halfW / cam.aspect; else halfW = halfH * cam.aspect;
-      Object.assign(camera, { left: -halfW, right: halfW, top: halfH, bottom: -halfH });
+      if (safe) {
+        // Fit the world into the free part of the screen (between the
+        // floating joypads, under the title) and centre it there.
+        const u = Math.max((2 * cam.hw) / (safe.x1 - safe.x0), (2 * cam.hh) / (safe.y1 - safe.y0));
+        const cx = (safe.x0 + safe.x1) / 2;
+        const cy = (safe.y0 + safe.y1) / 2;
+        Object.assign(camera, { left: -cx * u, right: (cam.w - cx) * u, top: cy * u, bottom: -(cam.h - cy) * u });
+      } else {
+        let halfW = cam.hw, halfH = cam.hh;
+        if (halfW / halfH > cam.aspect) halfH = halfW / cam.aspect; else halfW = halfH * cam.aspect;
+        Object.assign(camera, { left: -halfW, right: halfW, top: halfH, bottom: -halfH });
+      }
       camera.updateProjectionMatrix();
       renderer.render(scene, camera);
     }
@@ -1473,5 +1488,5 @@ export function createBoard3D(container) {
   requestAnimationFrame(animate);
   window.addEventListener('resize', resize);
 
-  return { update, bump, resize };
+  return { update, bump, resize, setSafeArea };
 }
