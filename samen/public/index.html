@@ -7,7 +7,10 @@
 <title>Samen 💞</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💞</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- The font loads alongside; the page shows straight away and swaps it in. -->
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<link rel="modulepreload" href="vendor/three.module.min.js">
 <style>
   :root {
     --text: #3d2b52; --muted: #8b7a9e; --card: rgba(255, 255, 255, .78);
@@ -318,16 +321,22 @@
   </section>
 </div>
 
-<script src="vendor/qrcode.js"></script>
 <script src="world.js"></script>
 <script src="game.js"></script>
 <script type="module">
-import { createBoard3D, webglAvailable } from './board3d.js';
 
 (() => {
   const $ = (id) => document.getElementById(id);
-  const use3d = webglAvailable();
-  let b3 = null;
+  // The 3D world (with its big three.js library) loads in the background, so
+  // the start screen works right away.
+  let use3d = (() => {
+    try {
+      const c = document.createElement('canvas');
+      return !!(window.WebGLRenderingContext && (c.getContext('webgl2') || c.getContext('webgl')));
+    } catch { return false; }
+  })();
+  const board3dModule = use3d ? import('./board3d.js') : null;
+  let b3 = null, b3Pending = null;
   if (use3d) { $('board').classList.add('hidden'); $('board3d').classList.remove('hidden'); }
   const store = {
     get(k) { try { return localStorage.getItem(k); } catch { return null; } },
@@ -443,11 +452,13 @@ import { createBoard3D, webglAvailable } from './board3d.js';
       show('share');
       $('shareCode').textContent = s.code;
       if ($('shareQr').dataset.code !== s.code) {
-        const qr = qrcode(0, 'M');
-        qr.addData(inviteLink());
-        qr.make();
-        $('shareQr').innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
         $('shareQr').dataset.code = s.code;
+        loadScript('vendor/qrcode.js').then(() => {
+          const qr = qrcode(0, 'M');
+          qr.addData(inviteLink());
+          qr.make();
+          $('shareQr').innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
+        });
       }
       return;
     }
@@ -466,8 +477,16 @@ import { createBoard3D, webglAvailable } from './board3d.js';
     }
     document.body.dataset.zone = g.zone;
     if (use3d) {
-      if (!b3) b3 = createBoard3D($('board3d'));
-      b3.update(g, mode === 'online' ? s.you : -1);
+      if (b3) b3.update(g, mode === 'online' ? s.you : -1);
+      else if (!b3Pending) {
+        b3Pending = board3dModule.then((m) => { b3 = m.createBoard3D($('board3d')); }).catch(() => {
+          // No 3D after all: fall back to the flat board.
+          use3d = false;
+          $('board').classList.remove('hidden');
+          $('board3d').classList.add('hidden');
+          buildControls();
+        }).then(() => { if (state && state.game) render(state); });
+      }
     } else {
       if (g.level !== renderedLevel || !board.firstChild) buildBoard(g);
       renderTiles(g);
@@ -480,6 +499,7 @@ import { createBoard3D, webglAvailable } from './board3d.js';
     }
 
     $('levelNum').textContent = `${zoneName(g.zone)} · gebied ${g.level + 1} van ${g.levels}`;
+    if (mode === 'online') store.set('samen.lastInfo', JSON.stringify({ code: s.code, area: g.level + 1, areas: g.levels, title: g.title, finished: s.finished }));
     $('levelTitle').textContent = g.title;
     const keySeats = mode === 'local' ? [0, 1] : [s.you];
     const keyText = [
@@ -518,6 +538,17 @@ import { createBoard3D, webglAvailable } from './board3d.js';
         if (mode === 'local') setTimeout(() => { if (local.solved && local.level === g.level) act('advance'); }, 1800);
       }
     }
+  }
+
+  const scripts = {};
+  function loadScript(src) {
+    return scripts[src] || (scripts[src] = new Promise((resolve, reject) => {
+      const el = document.createElement('script');
+      el.src = src;
+      el.onload = resolve;
+      el.onerror = reject;
+      document.head.appendChild(el);
+    }));
   }
 
   function zoneName(id) {
@@ -810,14 +841,21 @@ import { createBoard3D, webglAvailable } from './board3d.js';
     join(invite, savedName, $('lobbyMsg')); // back after a refresh
   } else if (!invite) {
     // Offer to continue the last online game, if it is still going.
+    // What we remember is shown at once; the server then has the last word.
     const last = store.get('samen.last');
     if (last && store.get('samen.room.' + last)) {
-      api(`/api/rooms/${last}`, null, 'GET').then((info) => {
-        if (info.finished) return;
+      const offer = (info) => {
+        const box = $('continueBox');
+        if (info.finished) return box.classList.add('hidden');
         $('continueText').textContent = `Jullie waren bij gebied ${info.area} van ${info.areas}: ${info.title}.`;
-        $('continueBox').classList.remove('hidden');
+        box.classList.remove('hidden');
         $('continueBtn').onclick = () => join(last, savedName, $('lobbyMsg'));
-      }).catch(() => {});
+      };
+      try {
+        const known = JSON.parse(store.get('samen.lastInfo'));
+        if (known && known.code === last) offer(known);
+      } catch {}
+      api(`/api/rooms/${last}`, null, 'GET').then(offer).catch(() => $('continueBox').classList.add('hidden'));
     }
   }
   if (invite && !store.get('samen.room.' + invite)) {

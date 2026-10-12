@@ -4,6 +4,7 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const zlib = require('node:zlib');
 const { AREAS, loadLevel, move, view } = require('./game');
 
 const PORT = Number(process.env.PORT) || 8080;
@@ -171,21 +172,62 @@ const MIME = {
   '.webmanifest': 'application/manifest+json',
 };
 
+// Static files are kept in memory, gzipped once, and sent with an ETag so a
+// returning phone only gets a tiny "not modified" answer. The 3D library
+// never changes between deploys of the same version, so it may be cached
+// for a week without asking.
+const fileCache = new Map(); // path -> { mtime, body, gzip, etag, type }
+
+function loadFile(file, done) {
+  fs.stat(file, (err, st) => {
+    if (err || !st.isFile()) return done(err || new Error('not a file'));
+    const hit = fileCache.get(file);
+    if (hit && hit.mtime === st.mtimeMs) return done(null, hit);
+    fs.readFile(file, (err2, body) => {
+      if (err2) return done(err2);
+      const type = MIME[path.extname(file)] || 'application/octet-stream';
+      const entry = {
+        mtime: st.mtimeMs,
+        body,
+        gzip: /text|javascript|json|svg/.test(type) ? zlib.gzipSync(body, { level: 9 }) : null,
+        etag: '"' + crypto.createHash('sha1').update(body).digest('base64url').slice(0, 20) + '"',
+        type,
+      };
+      fileCache.set(file, entry);
+      done(null, entry);
+    });
+  });
+}
+
+function sendFile(req, res, file, maxAge) {
+  loadFile(file, (err, f) => {
+    if (err) return send(res, 404, { error: 'not found' });
+    const headers = {
+      'Content-Type': f.type,
+      ETag: f.etag,
+      'Cache-Control': maxAge ? `public, max-age=${maxAge}` : 'no-cache',
+      Vary: 'Accept-Encoding',
+    };
+    if (req.headers['if-none-match'] === f.etag) {
+      res.writeHead(304, headers);
+      return res.end();
+    }
+    const gzip = f.gzip && /\bgzip\b/.test(req.headers['accept-encoding'] || '');
+    if (gzip) headers['Content-Encoding'] = 'gzip';
+    res.writeHead(200, headers);
+    res.end(req.method === 'HEAD' ? undefined : gzip ? f.gzip : f.body);
+  });
+}
+
 function serveStatic(req, res, pathname) {
   const rel = pathname === '/' ? 'index.html' : decodeURIComponent(pathname).replace(/^\/+/, '');
   const file = path.normalize(path.join(PUBLIC_DIR, rel));
   if (!file.startsWith(PUBLIC_DIR + path.sep)) return send(res, 404, { error: 'not found' });
-  fs.readFile(file, (err, data) => {
-    if (err) {
-      // SPA fallback so /?r=CODE style links and typos still land on the game.
-      return fs.readFile(path.join(PUBLIC_DIR, 'index.html'), (err2, html) => {
-        if (err2) return send(res, 404, { error: 'not found' });
-        res.writeHead(200, { 'Content-Type': MIME['.html'] });
-        res.end(html);
-      });
-    }
-    res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream' });
-    res.end(data);
+  const maxAge = rel.startsWith('vendor/') ? 7 * 24 * 3600 : 0;
+  fs.stat(file, (err, st) => {
+    // SPA fallback so /?r=CODE style links and typos still land on the game.
+    const ok = !err && st.isFile();
+    sendFile(req, res, ok ? file : path.join(PUBLIC_DIR, 'index.html'), ok ? maxAge : 0);
   });
 }
 
@@ -308,11 +350,7 @@ const server = http.createServer((req, res) => {
   if (url.pathname === '/game.js' || url.pathname === '/world.js') {
     // The browser uses the same rules and world for drawing and for the
     // one-phone mode.
-    return fs.readFile(path.join(__dirname, url.pathname.slice(1)), (err, data) => {
-      if (err) return send(res, 500, { error: 'missing ' + url.pathname });
-      res.writeHead(200, { 'Content-Type': MIME['.js'], 'Cache-Control': 'no-cache' });
-      res.end(data);
-    });
+    return sendFile(req, res, path.join(__dirname, url.pathname.slice(1)), 0);
   }
   if (url.pathname.startsWith('/api/')) {
     return handleApi(req, res, url).catch((err) => {

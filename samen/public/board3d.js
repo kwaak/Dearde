@@ -5,15 +5,6 @@
 import * as THREE from './vendor/three.module.min.js';
 import * as TEX from './textures.js';
 
-export function webglAvailable() {
-  try {
-    const c = document.createElement('canvas');
-    return !!(window.WebGLRenderingContext && (c.getContext('webgl2') || c.getContext('webgl')));
-  } catch {
-    return false;
-  }
-}
-
 const THEMES = {
   tuin: { floorA: 0xf3f8e6, floorB: 0xe6f1d2, wall: 0x6dbb72, top: 0x8bd48f },
   ijs: { floorA: 0xf4f8ff, floorB: 0xe6eefb, wall: 0x86afe0, top: 0xb4d2f5 },
