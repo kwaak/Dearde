@@ -35,6 +35,26 @@
       ],
     },
     {
+      zone: 'tuin',
+      title: 'De Molshoop',
+      boss: { name: 'Graaf Mol', look: 'mol', hp: 3, weak: 'trap', path: [[3, 4], [3, 5], [3, 6], [4, 6], [5, 6], [5, 5], [5, 4], [4, 4]] },
+      tips: [
+        'De mol loopt steeds hetzelfde rondje. Ga allebei bij een roze knop staan en stap erop precies als hij op de bloem staat: hap!',
+        'De bloem klapt dicht op het moment dat de laatste roze knop ingedrukt wordt. Spreek samen af wanneer: nu!',
+      ],
+      map: [
+        '###########',
+        '#m.......M#',
+        '#..a...a..#',
+        '#....T....#',
+        '#....#....#',
+        '#.........#',
+        '#.ZZZ.ZZZ.#',
+        '#.ZEZ.ZEZ.#',
+        '###########',
+      ],
+    },
+    {
       zone: 'ijs',
       title: 'Glijbaan',
       tips: [
@@ -69,6 +89,26 @@
         '####b####B##',
         '########E.E#',
         '############',
+      ],
+    },
+    {
+      zone: 'ijs',
+      title: 'Het IJspaleis',
+      boss: { name: 'Keizer Brrr', look: 'pinguin', hp: 3, weak: 'crate', under: '_' },
+      tips: [
+        'Zet de poort open voor Maxi met de roze knop. Brrr glijdt achter je aan: lok hem voor een kist!',
+        'Duw een kist het ijs op: hij glijdt door tot hij Brrr raakt. Drie keer raak en de kooi gaat open.',
+      ],
+      map: [
+        '#########',
+        '#M#a...m#',
+        '#A$____.#',
+        '#.$__G_.#',
+        '#.$____.#',
+        '#.......#',
+        '#.ZZZZZ.#',
+        '##ZEZEZ##',
+        '#########',
       ],
     },
     {
@@ -107,6 +147,26 @@
       ],
     },
     {
+      zone: 'grot',
+      title: 'De Diepe Grot',
+      boss: { name: 'Rommel de Rotsreus', look: 'golem', hp: 3, weak: 'fall' },
+      tips: [
+        'Rommel is te zwaar voor krakende vloer. Kruip door het muizengat en lok hem eroverheen!',
+        'Blijf op de blauwe knop staan, dan kan Rommel achter Mini aan. Drie keer erdoor gezakt en hij is verslagen.',
+      ],
+      map: [
+        '############',
+        '#M..#..G...#',
+        '#.b.#......#',
+        '#...###B####',
+        '#.m.o......#',
+        '#...#x#x#x##',
+        '#ZZZo......#',
+        '#EZE########',
+        '############',
+      ],
+    },
+    {
       zone: 'meer',
       title: 'Eilandjes',
       tips: [
@@ -137,6 +197,24 @@
         '###..$..~~.#',
         '#M.A....~~E#',
         '#..#m...~~.#',
+        '############',
+      ],
+    },
+    {
+      zone: 'meer',
+      title: 'De Inktpoel',
+      boss: { name: 'Inkie de Inktvis', look: 'inktvis', hp: 3, weak: 'water', swim: true, under: '%' },
+      tips: [
+        'Inkie zwemt naar wie aan de waterkant staat. Lok haar onder een kistgoot!',
+        'Duw een kist door de goot het water in, precies als Inkie eronder zwemt. Mis je, dan is de kist weg.',
+      ],
+      map: [
+        '############',
+        '#ZEZ.M..ZEZ#',
+        '#.Z.$$.$.Z.#',
+        '#o##.##.####',
+        '#.%%%%%%%%G#',
+        '#m.........#',
         '############',
       ],
     },
@@ -243,6 +321,23 @@
       ],
     },
     {
+      zone: 'paddo',
+      title: 'De Wankele Brug',
+      boss: { name: 'Draak Knorbert', look: 'draak', hp: 3, weak: 'collapse', path: [[3, 2], [3, 3], [3, 4], [3, 5], [3, 6], [3, 7], [3, 8], [3, 9], [3, 8], [3, 7], [3, 6], [3, 5], [3, 4], [3, 3]] },
+      tips: [
+        'Als Maxi het steenblok kapot slaat, kun jij naar de P-knop kruipen. Druk erop als Knorbert op de brug staat!',
+        'Sla het steenblok kapot zodat Mini bij de P-knop kan. Dan stort de brug in onder Knorbert.',
+      ],
+      map: [
+        '#############',
+        '#m.....Mr.op#',
+        '#.###########',
+        '#...QQQQQ.ZE#',
+        '#..%%%%%%.ZE#',
+        '#############',
+      ],
+    },
+    {
       zone: 'kasteel',
       title: 'Hendels',
       tips: [
@@ -276,6 +371,26 @@
         '#.$u..######.#',
         '#.M..#####EE.#',
         '##############',
+      ],
+    },
+    {
+      zone: 'kasteel',
+      title: 'De Spookzaal',
+      boss: { name: 'Spookridder Boe', look: 'spook', hp: 3, weak: 'squeeze' },
+      tips: [
+        'Zet de hendel om voor Maxi. Boe duwt je weg, dus ga met je rug tegen een muur staan en laat Maxi hem van achteren insluiten.',
+        'Zet de hendel om voor Mini. Sluit Boe in tussen jullie tweeën, van twee kanten tegelijk!',
+      ],
+      map: [
+        '###########',
+        '#mv#...#uM#',
+        '#U##...##V#',
+        '#....G....#',
+        '#.#.#.#.#.#',
+        '#.........#',
+        '#..ZZZZZ..#',
+        '###ZEZEZ###',
+        '###########',
       ],
     },
     {
@@ -359,6 +474,35 @@
       ],
     },
     {
+      zone: 'berg',
+      title: 'De Sneeuwkam',
+      boss: { name: 'Jeti Joep', look: 'jeti', hp: 3, weak: 'drop' },
+      tips: [
+        'Jeti Joep komt op je af. Lok hem onder een kist die op de rand staat!',
+        'Duw een kist van de rand als Joep eronder staat: bonk! Drie keer.',
+      ],
+      map: [
+        '##########',
+        '#M.......#',
+        '##$#$#$###',
+        '#.......G#',
+        '#m.......#',
+        '#ZZZ######',
+        '#EZE######',
+        '##########',
+      ],
+      heights: [
+        '0111111110',
+        '0111111110',
+        '0111111110',
+        '0000000000',
+        '0000000000',
+        '0000000000',
+        '0000000000',
+        '0000000000',
+      ],
+    },
+    {
       zone: 'hart',
       title: 'Het hart',
       tips: [
@@ -377,6 +521,25 @@
         '#########K#####',
         '########E.E####',
         '###############',
+      ],
+    },
+    {
+      zone: 'hart',
+      title: 'Het Gestolen Hart',
+      boss: { name: 'De Hartendief', look: 'dief', hp: 3, weak: ['trap', 'crate', 'squeeze'] },
+      tips: [
+        'Hij wisselt van zwakke plek: eerst de bloemval (allebei een roze knop), dan een kist, en tot slot samen insluiten.',
+        'Zet de hendel om, druk samen de roze knoppen in als hij op de bloem staat, duw dan de kist tegen hem aan en sluit hem tot slot samen in.',
+      ],
+      map: [
+        '#########',
+        '#mv#a#uM#',
+        '#U#...#V#',
+        '#.$.T...#',
+        '#...G.a.#',
+        '#.ZZZZZ.#',
+        '##ZEZEZ##',
+        '#########',
       ],
     },
   ];

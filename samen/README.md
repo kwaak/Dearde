@@ -21,6 +21,30 @@ phone follows its own player. When both players
 stand on the hearts of an area they walk over a little bridge into the next
 one. There are no level screens in between.
 
+Every zone ends with a boss guarding the hearts in a cage. Bosses take a
+step after every move (walking a round, or chasing the nearest player and
+shoving them aside), and each has its own weak spot that takes the two of
+you:
+
+- **Graaf Mol** (Garden): a flower trap that snaps when the last of two pink
+  buttons goes down while he is on it.
+- **Keizer Brrr** (Ice): a penguin sliding after you; hit him with a
+  crate sliding over the ice.
+- **Rommel de Rotsreus** (Cave): too heavy for cracked floor; Mini lures him
+  across and he crashes through, leaving a hole.
+- **Inkie de Inktvis** (Lake): swims to whoever stands at the shore; Maxi
+  drops a crate on her through a chute. Missed crates sink in the deep.
+- **Draak Knorbert** (Mushroom Kingdom): patrols a crumbly bridge that falls
+  away when the P-switch is pressed.
+- **Spookridder Boe** (Castle): only beaten by squeezing him between Mini
+  and Maxi.
+- **Jeti Joep** (Mountains): lured under a ledge, then a crate drops on him.
+- **De Hartendief** (Heart): changes his weak spot after every hit: flower
+  trap, crate, squeeze.
+
+A chasing boss with nobody in reach walks back home, so one of you has to be
+the bait while the other strikes.
+
 Areas live in `world.js`. The tests run a solver over every area: each one
 must be solvable, impossible for either player alone, and every zone must
 peak harder than the one before.

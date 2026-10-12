@@ -28,8 +28,8 @@ function reachesHeartAlone(level, seat) {
 
 // A tiny extra area for rule tests. Each gets its own index, because
 // parsed maps are cached per index.
-function scratch(map, heights) {
-  AREAS.push({ zone: 'test', title: 'test', tips: ['', ''], map, heights });
+function scratch(map, heights, boss) {
+  AREAS.push({ zone: 'test', title: 'test', tips: ['', ''], map, heights, boss });
   return { s: loadLevel(AREAS.length - 1) };
 }
 
@@ -45,10 +45,10 @@ for (let i = 0; i < AREAS.length; i++) {
   });
 }
 
-test('every zone peaks harder than the zone before it', () => {
+test('every zone peaks harder than the zone before it (bosses aside)', () => {
   let previous = 0;
   for (const zone of ZONES) {
-    const peak = Math.max(...AREAS.map((a, i) => (a.zone === zone.id ? steps[i] : 0)));
+    const peak = Math.max(...AREAS.map((a, i) => (a.zone === zone.id && !a.boss ? steps[i] : 0)));
     assert.ok(peak > previous, `${zone.name} peaks at ${peak}, not above ${previous}`);
     previous = peak;
   }
@@ -171,4 +171,64 @@ test('heights: Maxi climbs one step, Mini only takes stairs, anyone jumps down',
   assert.ok(move(s, 1, 'right'), 'and another');
   assert.ok(move(s, 1, 'right'), 'jumping down is fine');
   assert.strictEqual(move(s, 1, 'left'), false, 'two steps up is too high');
+});
+
+test('every zone ends with a boss guarding the hearts', () => {
+  for (const zone of ZONES) {
+    const areas = AREAS.filter((a) => a.zone === zone.id);
+    const last = areas[areas.length - 1];
+    assert.ok(last.boss, `${zone.name} has no boss`);
+    assert.ok(last.map.some((row) => row.includes('Z')), `${last.title} has no cage`);
+  }
+});
+
+test('boss: the flower trap snaps when the last pink button goes down', () => {
+  const path = [[2, 3], [2, 4], [2, 5], [2, 4]];
+  const { s } = scratch(['#######', '#a...a#', '#.....#', '#mT..M#', '#######'], null, { hp: 2, weak: 'trap', path });
+  s.boss.pos = [3, 2]; // on the flower
+  move(s, 0, 'up');
+  s.boss.pos = [3, 2];
+  move(s, 0, 'up'); // Mini on one button
+  s.boss.pos = [3, 2];
+  assert.strictEqual(s.boss.hp, 2, 'one button is not enough');
+  s.players[1] = [2, 5];
+  move(s, 1, 'up'); // Maxi on the other: snap
+  assert.strictEqual(s.boss.hp, 1);
+  assert.notDeepStrictEqual(s.boss.pos, [3, 2], 'off the flower, back on its round');
+});
+
+test('boss: a sliding crate hits, a crate in deep water sinks', () => {
+  const { s } = scratch(['########', '#M$___G#', '#m.....#', '########'], null, { hp: 3, weak: 'crate', under: '_' });
+  assert.ok(move(s, 1, 'right'));
+  assert.strictEqual(s.boss.hp, 2);
+  const deep = scratch(['######', '#M$%.#', '#m...#', '######']).s;
+  assert.ok(move(deep, 1, 'right'));
+  assert.deepStrictEqual(deep.boxes, [null], 'gone without a bridge');
+  assert.strictEqual(move(deep, 1, 'right') && move(deep, 1, 'right'), false);
+});
+
+test('boss: a heavy boss crashes through cracked floor and leaves a hole', () => {
+  const { s } = scratch(['#######', '#G.x.m#', '#######', '#M....#', '#######'], null, { hp: 3, weak: 'fall' });
+  move(s, 0, 'left'); // the boss follows Mini
+  move(s, 0, 'right'); // and steps on the cracked floor
+  assert.strictEqual(s.boss.hp, 2);
+  assert.ok(s.broken.includes('1,3'), 'a hole');
+  assert.ok(move(s, 0, 'left'));
+  assert.strictEqual(move(s, 0, 'left'), false, 'nobody crosses a hole');
+});
+
+test('boss: squeezed between Mini and Maxi', () => {
+  const { s } = scratch(['#######', '#m.G.M#', '#.....#', '#######'], null, { hp: 3, weak: 'squeeze' });
+  s.boss.pos = [1, 3];
+  s.players[0] = [1, 2];
+  s.players[1] = [2, 4];
+  move(s, 1, 'up');
+  assert.strictEqual(s.boss.hp, 2);
+});
+
+test('boss: a chasing boss heads home when nobody is in reach', () => {
+  const { s } = scratch(['########', '#G...#m#', '#####M.#', '########'], null, { hp: 3, weak: 'squeeze' });
+  s.boss.pos = [1, 4];
+  move(s, 1, 'right');
+  assert.deepStrictEqual(s.boss.pos, [1, 3]);
 });

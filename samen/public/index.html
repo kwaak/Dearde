@@ -197,6 +197,21 @@
   .tile.stair { background-image: repeating-linear-gradient(90deg, transparent 0 30%, rgba(0,0,0,.12) 30% 33%); }
   .tile.pipe, .tile.spring, .tile.coin, .tile.pswitch { box-shadow: inset 0 0 0 1px var(--floor-edge); background-color: var(--floor); }
 
+  /* Bosses */
+  .bossbar { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); z-index: 4; background: rgba(255,255,255,.92); border-radius: 18px;
+    padding: 6px 14px; text-align: center; box-shadow: 0 6px 18px rgba(120,80,160,.2); white-space: nowrap; }
+  .bossbar b { font-size: 1rem; } .bossbar .lives { color: #ff4d6d; letter-spacing: 2px; margin-left: 6px; }
+  .bossbar small { display: block; color: var(--muted); font-size: .8rem; }
+  .bossbar.hit { animation: shake .4s; }
+  @keyframes shake { 25% { translate: -6px 0; } 75% { translate: 6px 0; } }
+  .tile.trap { background-color: var(--floor); } .tile.trap::after { content: '🌸'; position: absolute; inset: 0; display: grid; place-items: center; font-size: min(4vw, 18px); }
+  .tile.deep { background: #2f5fa8; }
+  .tile.crumble { background: #a8835c; box-shadow: inset 0 0 0 2px #7a5a3a; }
+  .tile.hole { background: #140d22; border-radius: 50%; }
+  .tile.cage { background: var(--floor); background-image: repeating-linear-gradient(90deg, #f5c242 0 3px, transparent 3px 9px); }
+  .tile.cage.open { background-image: none; }
+  .sprite.boss .face { font-size: min(7vw, 30px); line-height: 1; }
+
   /* Start area picker */
   .pickbtn { display: flex; align-items: center; gap: 8px; width: 100%; padding: 12px 16px; border-radius: 16px; background: #fff; color: var(--text); text-align: left; box-shadow: 0 3px 0 var(--floor-edge); }
   .pickbtn span { color: var(--muted); font-size: .9rem; } .pickbtn b { flex: 1; font-weight: 600; } .pickbtn i { font-style: normal; color: var(--muted); }
@@ -226,6 +241,7 @@
     body.playing .stars, body.playing #footHint { display: none; }
     body.playing #tips { position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); width: min(54vw, 520px); z-index: 6; align-items: center; }
     body.playing .keys { top: 58px; right: 12px; bottom: auto; }
+    body.playing .bossbar { top: 58px; bottom: auto; left: 12px; transform: none; text-align: left; }
     body.playing .banner { top: 56px; }
     body.playing .controls { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
     body.playing .pad { position: absolute; bottom: max(12px, env(safe-area-inset-bottom)); right: max(16px, env(safe-area-inset-right)); pointer-events: auto;
@@ -313,6 +329,7 @@
       <div class="board3d hidden" id="board3d"></div>
       <div class="banner" id="banner"><small id="bannerZone"></small><b id="bannerTitle"></b></div>
       <div class="keys hidden" id="keys"></div>
+      <div class="bossbar hidden" id="bossbar"></div>
       <div class="overlay hidden" id="overlay"></div>
     </div>
     <div class="controls" id="controls"></div>
@@ -356,6 +373,18 @@
   let local = null, localTotal = 0, localFinished = false;
   let renderedLevel = -1;
   let sprites = [];
+  let bossSprite = null;
+  let bossHits = { level: -1, hits: 0 };
+  const BOSS_FACES = { mol: '🐹', pinguin: '🐧', golem: '🗿', inktvis: '🦑', draak: '🐲', spook: '👻', jeti: '🐻‍❄️', dief: '😼' };
+  const WEAK = {
+    trap: '🌸 Bloemval: druk samen de roze knoppen in',
+    crate: '📦 Duw een kist tegen hem aan',
+    fall: '🕳️ Lok hem over de krakende vloer',
+    water: '💧 Duw een kist op hem in het water',
+    collapse: '🌉 Laat de brug onder hem instorten',
+    squeeze: '🤝 Sluit hem samen in',
+    drop: '⬇️ Laat een kist op hem vallen',
+  };
   let lastSolvedKey = null;
   let hintLevel = -1;
 
@@ -390,6 +419,7 @@
     };
     g.boxes.forEach(() => sprites.push(add('<div class="box"></div>', 'crate')));
     sprites.push(add(charHtml(0), 'p0'), add(charHtml(1), 'p1'));
+    bossSprite = g.boss ? add(`<div class="face">${BOSS_FACES[g.boss.look] || '👾'}</div>`, 'boss') : null;
     renderedLevel = g.level;
     hintLevel = -1;
   }
@@ -438,6 +468,11 @@
       else if (t === 'p') cls += ' pswitch';
       else if (t === 'q0' || t === 'q1') cls += ' pblock' + (t === 'q1' ? ' on' : '');
       else if (t === '/') cls += ' floor stair';
+      else if (t === 'T') cls += ' trap';
+      else if (t === '%' || t === 'Q0') cls += ' deep';
+      else if (t === 'Q1') cls += ' crumble';
+      else if (t === 'h') cls += ' hole';
+      else if (t === 'Z' || t === 'Z+') cls += ' cage' + (t === 'Z+' ? ' open' : '');
       else cls += ' floor';
       el.className = cls;
       // Higher ground is lighter, like sunlit plateaus.
@@ -491,6 +526,10 @@
       if (g.level !== renderedLevel || !board.firstChild) buildBoard(g);
       renderTiles(g);
       g.boxes.forEach((b, i) => { sprites[i].classList.toggle('hidden', !b); if (b) place(sprites[i], b, g); });
+      if (bossSprite) {
+        bossSprite.classList.toggle('hidden', !g.boss.pos);
+        if (g.boss.pos) place(bossSprite, g.boss.pos, g);
+      }
       [0, 1].forEach((seat) => {
         const sp = sprites[g.boxes.length + seat];
         place(sp, g.players[seat], g);
@@ -509,6 +548,7 @@
     ].filter(Boolean).join('  ');
     $('keys').textContent = keyText;
     $('keys').classList.toggle('hidden', !keyText);
+    renderBoss(g);
     $('stars').innerHTML = Array.from({ length: g.levels }, (_, i) =>
       `<span class="${i < g.level || s.finished ? 'done' : i === g.level ? 'now' : ''}"></span>`).join('');
 
@@ -549,6 +589,22 @@
       el.onerror = reject;
       document.head.appendChild(el);
     }));
+  }
+
+  function renderBoss(g) {
+    const bar = $('bossbar');
+    if (!g.boss) { bar.classList.add('hidden'); return; }
+    const b = g.boss;
+    if (bossHits.level !== g.level) bossHits = { level: g.level, hits: b.hits };
+    if (b.hits > bossHits.hits) {
+      bossHits.hits = b.hits;
+      vibrate([120, 60, 120]);
+      bar.classList.remove('hit'); void bar.offsetWidth; bar.classList.add('hit');
+      if (b.hp > 0) showBanner(`Raak! 💥 Nog ${b.hp} te gaan`, Array.isArray(b.weak) ? 'Let op: nu een andere zwakke plek!' : b.name);
+      else { showBanner(`${b.name} is verslagen! 🎉`, 'De kooi is open, naar de hartjes!'); celebrate('boss' + g.level, 60); }
+    }
+    bar.classList.toggle('hidden', b.hp <= 0);
+    bar.innerHTML = `<b>${b.name}</b><span class="lives">${'❤'.repeat(Math.max(0, b.hp))}${'♡'.repeat(Math.max(0, b.maxHp - b.hp))}</span><small>${WEAK[b.weakNow] || ''}</small>`;
   }
 
   function zoneName(id) {

@@ -286,6 +286,332 @@ function makeCoin() {
   return shadowed(g);
 }
 
+// ---------- Bosses ----------
+
+const BOSS_SIZE = 1.25; // a head taller than Maxi
+
+function ball(r, color, extra = {}, seg = 32) {
+  return new THREE.Mesh(new THREE.SphereGeometry(r, seg, Math.round(seg * 0.75)), mat(color, extra));
+}
+
+// Graaf Mol: a velvety mole with a monocle, a pink nose and a tiny crown.
+function makeMol() {
+  const g = new THREE.Group();
+  const fur = texMat(TEX.feltTex(0x8a5a3c), { roughness: 0.95, bumpScale: 2.5 });
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.42, 48, 36), fur);
+  body.scale.set(1, 0.9, 1.05);
+  body.position.y = 0.4;
+  const belly = ball(0.26, 0xd9b08c, { roughness: 0.9 });
+  belly.scale.set(1, 1, 0.45);
+  belly.position.set(0, 0.34, 0.3);
+  const nose = ball(0.09, 0xff7fa8, { roughness: 0.3 });
+  nose.position.set(0, 0.5, 0.44);
+  g.add(body, belly, nose);
+  eyes(g, 0.12, 0.62, 0.36, 0.045);
+  const monocle = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.012, 8, 24), mat(COLORS.gold, shiny({ metalness: 0.9, roughness: 0.2 })));
+  monocle.position.set(0.12, 0.62, 0.4);
+  g.add(monocle);
+  for (const side of [-1, 1]) {
+    const claw = ball(0.12, 0xffb3c6, { roughness: 0.6 });
+    claw.scale.set(1.2, 0.5, 0.9);
+    claw.position.set(side * 0.36, 0.22, 0.25);
+    g.add(claw);
+  }
+  g.add(crown(0.16, 0.8));
+  return shadowed(g);
+}
+
+function crown(size, y) {
+  const c = new THREE.Group();
+  const gold = mat(COLORS.gold, shiny({ metalness: 0.9, roughness: 0.2, emissive: COLORS.gold, emissiveIntensity: 0.15 }));
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(size, size, size * 0.5, 24, 1, true), gold);
+  c.add(band);
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2;
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(size * 0.28, size * 0.6, 8), gold);
+    tip.position.set(Math.cos(a) * size, size * 0.5, Math.sin(a) * size);
+    c.add(tip);
+  }
+  const gem = ball(size * 0.18, 0xff4d6d, shiny({ roughness: 0.1 }), 12);
+  gem.position.set(0, 0, size);
+  c.add(gem);
+  c.position.y = y;
+  return c;
+}
+
+// Keizer Brrr: a round emperor penguin with a crown, sliding on his belly.
+function makePinguin() {
+  const g = new THREE.Group();
+  const body = ball(0.38, 0x2b2f45, shiny({ roughness: 0.35, envMapIntensity: 0.4 }), 48);
+  body.scale.set(1, 1.15, 0.95);
+  body.position.y = 0.45;
+  const belly = ball(0.3, 0xffffff, { roughness: 0.5 }, 40);
+  belly.scale.set(0.95, 1.1, 0.6);
+  belly.position.set(0, 0.4, 0.17);
+  const blush = ball(0.12, 0xffd166, { roughness: 0.6 });
+  blush.scale.set(1.6, 0.6, 0.6);
+  blush.position.set(0, 0.68, 0.24);
+  const beak = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.18, 16), mat(0xff9f43, { roughness: 0.4 }));
+  beak.rotation.x = Math.PI / 2;
+  beak.position.set(0, 0.72, 0.4);
+  g.add(body, belly, blush, beak);
+  eyes(g, 0.11, 0.8, 0.3, 0.045);
+  for (const side of [-1, 1]) {
+    const wing = ball(0.16, 0x2b2f45, { roughness: 0.4 });
+    wing.scale.set(0.35, 1, 0.7);
+    wing.position.set(side * 0.38, 0.45, 0);
+    wing.rotation.z = side * 0.35;
+    const foot = ball(0.09, 0xff9f43, { roughness: 0.5 });
+    foot.scale.set(1.2, 0.4, 1.4);
+    foot.position.set(side * 0.13, 0.04, 0.15);
+    g.add(wing, foot);
+  }
+  g.add(crown(0.14, 0.98));
+  return shadowed(g);
+}
+
+// Rommel de Rotsreus: chunky boulders with glowing eyes and a mossy top.
+function makeGolem() {
+  const g = new THREE.Group();
+  const rock = texMat(TEX.wallTex('grot', false), { roughness: 0.9, bumpScale: 4, color: 0xb8b2aa });
+  const torso = new THREE.Mesh(new THREE.DodecahedronGeometry(0.4, 1), rock);
+  torso.scale.set(1.15, 1, 0.9);
+  torso.position.y = 0.55;
+  const head = new THREE.Mesh(new THREE.DodecahedronGeometry(0.22, 1), rock);
+  head.position.set(0, 0.98, 0.05);
+  const moss = ball(0.16, 0x6bbf59, { roughness: 1 }, 16);
+  moss.scale.set(1.3, 0.4, 1.1);
+  moss.position.set(0, 1.17, 0);
+  g.add(torso, head, moss);
+  for (const side of [-1, 1]) {
+    const eye = ball(0.045, 0xffe066, { emissive: 0xffd000, emissiveIntensity: 1.2 }, 12);
+    eye.position.set(side * 0.08, 1.0, 0.24);
+    const arm = new THREE.Mesh(new THREE.DodecahedronGeometry(0.17, 0), rock);
+    arm.position.set(side * 0.52, 0.5, 0.05);
+    const leg = new THREE.Mesh(new THREE.DodecahedronGeometry(0.15, 0), rock);
+    leg.position.set(side * 0.2, 0.12, 0);
+    g.add(eye, arm, leg);
+  }
+  return shadowed(g);
+}
+
+// Inkie de Inktvis: a purple squid peeking out of the water, tentacles waving.
+function makeInktvis() {
+  const g = new THREE.Group();
+  const skin = mat(0x9b5bd6, shiny({ roughness: 0.3, envMapIntensity: 0.4 }));
+  const head = ball(0.32, 0x9b5bd6, shiny({ roughness: 0.3, envMapIntensity: 0.4 }), 48);
+  head.scale.set(1, 1.35, 1);
+  head.position.y = 0.55;
+  const fin = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.3, 4), skin);
+  fin.position.y = 1.0;
+  fin.scale.set(1, 1, 0.3);
+  g.add(head, fin);
+  eyes(g, 0.13, 0.55, 0.26, 0.075);
+  for (let i = 0; i < 6; i++) {
+    const t = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.07, 0.5, 10), skin);
+    const a = (i / 6) * Math.PI * 2;
+    t.position.set(Math.cos(a) * 0.25, 0.12, Math.sin(a) * 0.25);
+    t.rotation.set(Math.sin(a) * 0.6, 0, -Math.cos(a) * 0.6);
+    t.userData.wave = a;
+    g.add(t);
+  }
+  for (const side of [-1, 1]) {
+    const spot = ball(0.05, 0xd9a3ff, { roughness: 0.4 }, 12);
+    spot.position.set(side * 0.18, 0.8, 0.2);
+    g.add(spot);
+  }
+  return shadowed(g);
+}
+
+// Draak Knorbert: a grumpy little dragon with a spiky back and tiny wings.
+function makeDraak() {
+  const g = new THREE.Group();
+  const scales = mat(0x4fb35a, shiny({ roughness: 0.35, envMapIntensity: 0.3 }));
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.36, 40, 30), scales);
+  body.scale.set(1, 1, 1.15);
+  body.position.y = 0.42;
+  const belly = ball(0.26, 0xffd27a, { roughness: 0.6 });
+  belly.scale.set(1, 1.1, 0.5);
+  belly.position.set(0, 0.38, 0.22);
+  const head = ball(0.24, 0x4fb35a, shiny({ roughness: 0.35 }));
+  head.position.set(0, 0.85, 0.12);
+  const snout = ball(0.14, 0x63c96d, { roughness: 0.5 });
+  snout.scale.set(1.2, 0.8, 1);
+  snout.position.set(0, 0.8, 0.32);
+  g.add(body, belly, head, snout);
+  eyes(g, 0.1, 0.95, 0.27, 0.045);
+  const brow = mat(COLORS.eye);
+  for (const side of [-1, 1]) {
+    const b = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.025, 0.03), brow);
+    b.position.set(side * 0.1, 1.02, 0.31);
+    b.rotation.z = side * 0.4;
+    const horn = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.18, 12), mat(0xfff1c2));
+    horn.position.set(side * 0.12, 1.1, 0.05);
+    horn.rotation.z = -side * 0.4;
+    const wing = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.32, 3), mat(0x9be27a, { side: THREE.DoubleSide }));
+    wing.position.set(side * 0.38, 0.6, -0.15);
+    wing.rotation.set(0, 0, -side * 1.1);
+    wing.scale.set(1, 1, 0.2);
+    g.add(b, horn, wing);
+  }
+  for (let i = 0; i < 4; i++) {
+    const spike = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.16, 8), mat(0xff8f5a));
+    spike.position.set(0, 0.72 - i * 0.12, -0.3 - i * 0.04);
+    spike.rotation.x = -0.6;
+    g.add(spike);
+  }
+  const tail = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.45, 12), scales);
+  tail.position.set(0, 0.2, -0.5);
+  tail.rotation.x = -1.2;
+  g.add(tail);
+  return shadowed(g);
+}
+
+// Spookridder Boe: a see-through ghost in a knight's helmet with a plume.
+function makeSpook() {
+  const g = new THREE.Group();
+  const ghost = new THREE.MeshPhysicalMaterial({ color: 0xf2f4ff, roughness: 0.3, transmission: 0.2, transparent: true, opacity: 0.82, emissive: 0xc9d4ff, emissiveIntensity: 0.25 });
+  const pts = [];
+  for (let i = 0; i <= 16; i++) {
+    const t = i / 16;
+    pts.push(new THREE.Vector2(Math.sin(t * Math.PI * 0.95) * 0.38 + 0.02, t * 0.95));
+  }
+  const body = new THREE.Mesh(new THREE.LatheGeometry(pts.reverse(), 40), ghost);
+  body.position.y = 0.15;
+  g.add(body);
+  const steel = mat(0xb8bccb, shiny({ metalness: 0.85, roughness: 0.25 }));
+  const helm = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.27, 0.32, 32), steel);
+  helm.position.y = 1.02;
+  const visor = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.05, 0.05), mat(0x1d1b2b));
+  visor.position.set(0, 1.03, 0.25);
+  const plume = ball(0.1, 0xff5f8f, { roughness: 0.7 }, 16);
+  plume.scale.set(0.6, 1.8, 1.2);
+  plume.position.set(0, 1.32, -0.05);
+  g.add(helm, visor, plume);
+  for (const side of [-1, 1]) {
+    const glow = ball(0.035, 0x7fd4ff, { emissive: 0x7fd4ff, emissiveIntensity: 1.5 }, 10);
+    glow.position.set(side * 0.08, 1.03, 0.27);
+    const arm = ball(0.1, 0xf2f4ff, {}, 16);
+    arm.material = ghost;
+    arm.scale.set(0.6, 1.2, 0.6);
+    arm.position.set(side * 0.42, 0.55, 0.05);
+    g.add(glow, arm);
+  }
+  g.traverse((o) => { o.castShadow = true; });
+  return g;
+}
+
+// Jeti Joep: a big fluffy snow beast with a friendly blue face and horns.
+function makeJeti() {
+  const g = new THREE.Group();
+  const fluff = texMat(TEX.feltTex(0xf2f6ff), { roughness: 1, bumpScale: 3 });
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.44, 48, 36), fluff);
+  body.scale.set(1.05, 1.1, 0.95);
+  body.position.y = 0.5;
+  const face = ball(0.22, 0x8fb8f0, { roughness: 0.6 });
+  face.scale.set(1.1, 0.95, 0.5);
+  face.position.set(0, 0.68, 0.33);
+  g.add(body, face);
+  eyes(g, 0.08, 0.74, 0.42, 0.045);
+  mouth(g, 0.6, 0.43, 0.06);
+  for (const side of [-1, 1]) {
+    const horn = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.22, 12), mat(0xfff1c2));
+    horn.position.set(side * 0.24, 1.0, 0);
+    horn.rotation.z = -side * 0.5;
+    const arm = new THREE.Mesh(new THREE.SphereGeometry(0.17, 24, 18), fluff);
+    arm.scale.set(0.8, 1.3, 0.8);
+    arm.position.set(side * 0.48, 0.42, 0.05);
+    const foot = ball(0.13, 0x8fb8f0, { roughness: 0.7 });
+    foot.scale.set(1, 0.5, 1.3);
+    foot.position.set(side * 0.18, 0.05, 0.1);
+    g.add(horn, arm, foot);
+  }
+  return shadowed(g);
+}
+
+// De Hartendief: a sly cat burglar with a mask, a striped scarf and a sack
+// full of stolen hearts.
+function makeDief() {
+  const g = new THREE.Group();
+  const fur = texMat(TEX.feltTex(0x5b5470), { roughness: 0.9, bumpScale: 2 });
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.3, 40, 30), fur);
+  body.scale.set(1, 1.1, 0.95);
+  body.position.y = 0.36;
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.27, 40, 30), fur);
+  head.position.y = 0.82;
+  g.add(body, head);
+  const mask = new THREE.Mesh(new THREE.TorusGeometry(0.255, 0.05, 10, 40), mat(0x1d1b2b, { roughness: 0.4 }));
+  mask.position.set(0, 0.86, 0);
+  mask.scale.set(1, 0.6, 1);
+  g.add(mask);
+  eyes(g, 0.1, 0.87, 0.23, 0.045);
+  const nose = ball(0.03, 0xff8fab, {}, 12);
+  nose.position.set(0, 0.78, 0.27);
+  g.add(nose);
+  for (const side of [-1, 1]) {
+    const ear = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.18, 4), fur);
+    ear.position.set(side * 0.16, 1.07, 0);
+    ear.rotation.z = -side * 0.3;
+    for (let w = 0; w < 2; w++) {
+      const whisker = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.16, 4), mat(0xffffff));
+      whisker.rotation.z = Math.PI / 2 + side * (0.1 + w * 0.15);
+      whisker.position.set(side * 0.18, 0.77 - w * 0.03, 0.22);
+      g.add(whisker);
+    }
+    g.add(ear);
+  }
+  const scarf = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.06, 10, 32), texMat(TEX.doorTex(0xff4d6d), { roughness: 0.8 }));
+  scarf.rotation.x = Math.PI / 2;
+  scarf.position.y = 0.58;
+  g.add(scarf);
+  const sack = ball(0.22, 0xc9a26b, { roughness: 0.95 }, 24);
+  sack.scale.set(1, 1.1, 1);
+  sack.position.set(0.32, 0.55, -0.2);
+  const peek = new THREE.Mesh(new THREE.ExtrudeGeometry(heartShape(), { depth: 0.06, bevelEnabled: false }), mat(COLORS.heart, { emissive: COLORS.heart, emissiveIntensity: 0.3 }));
+  peek.geometry.center();
+  peek.scale.setScalar(0.28);
+  peek.position.set(0.32, 0.8, -0.2);
+  const tail = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.04, 8, 24, Math.PI * 1.2), fur);
+  tail.position.set(-0.2, 0.3, -0.25);
+  tail.rotation.y = Math.PI / 2;
+  g.add(sack, peek, tail);
+  return shadowed(g);
+}
+
+const BOSS_MAKERS = { mol: makeMol, pinguin: makePinguin, golem: makeGolem, inktvis: makeInktvis, draak: makeDraak, spook: makeSpook, jeti: makeJeti, dief: makeDief };
+
+// The snapping flower of the flower trap: a pad with two big jaws.
+function makeFlowerTrap() {
+  const g = new THREE.Group();
+  const leaf = mat(0x5fc46a, { roughness: 0.6, side: THREE.DoubleSide });
+  for (let i = 0; i < 6; i++) {
+    const petal = ball(0.16, 0xff8fbf, { roughness: 0.5 }, 16);
+    const a = (i / 6) * Math.PI * 2;
+    petal.scale.set(1, 0.25, 0.6);
+    petal.position.set(Math.cos(a) * 0.28, 0.04, Math.sin(a) * 0.28);
+    petal.rotation.y = -a;
+    g.add(petal);
+  }
+  const jaws = [-1, 1].map((side) => {
+    const jaw = new THREE.Group();
+    const half = new THREE.Mesh(new THREE.SphereGeometry(0.3, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), leaf);
+    half.scale.set(1, 0.6, 0.55);
+    jaw.add(half);
+    for (let k = -2; k <= 2; k++) {
+      const tooth = new THREE.Mesh(new THREE.ConeGeometry(0.025, 0.08, 6), mat(0xffffff));
+      tooth.position.set(k * 0.1, 0.01, 0.15);
+      jaw.add(tooth);
+    }
+    jaw.rotation.x = side * 1.2;
+    jaw.position.y = 0.06;
+    jaw.rotation.y = side > 0 ? Math.PI : 0;
+    g.add(jaw);
+    return jaw;
+  });
+  g.userData.jaws = jaws;
+  return shadowed(g);
+}
+
 export function createBoard3D(container) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -372,7 +698,7 @@ export function createBoard3D(container) {
     const group = new THREE.Group();
     group.position.set(offsets[level], 0, -(g.tiles.length - 1) / 2);
     const zone = THEMES[AREAS[level].zone] ? AREAS[level].zone : 'tuin';
-    const parts = { doors: [], plates: [], tunnels: [], hearts: [], water: [], keys: [], locks: [], levers: [], crates: [], bricks: [], coins: [], springs: [], switches: [], pblocks: [] };
+    const parts = { doors: [], plates: [], tunnels: [], hearts: [], water: [], keys: [], locks: [], levers: [], crates: [], bricks: [], coins: [], springs: [], switches: [], pblocks: [], traps: [], crumbles: [], cracks: [] };
     const tile = (r, c) => g.tiles[r] && g.tiles[r][c];
     const open = (t) => t && t !== '#' && t !== 'o';
 
@@ -386,6 +712,7 @@ export function createBoard3D(container) {
     const wallMat = [side, side, top, side, side, side]; // box faces: +x -x +y -y +z -z
     const iceMat = texMat(TEX.iceTex(), shiny({ color: 0xcfe6ff, roughness: 0.08, bumpScale: 0.3, envMapIntensity: 0.35 }));
     const plankMat = texMat(TEX.plankTex(), { roughness: 0.8, bumpScale: 2 });
+    const deepMat = texMat(TEX.waterTex(), shiny({ color: 0x5a7fc4, roughness: 0.1, transparent: true, opacity: 0.95, bumpScale: 0.5, envMapIntensity: 0.6 }));
     const waterMat = texMat(TEX.waterTex(), shiny({ roughness: 0.1, transparent: true, opacity: 0.9, bumpScale: 0.5, envMapIntensity: 0.7 }));
 
     const lift = (r, c) => liftOf(level, r, c);
@@ -439,6 +766,37 @@ export function createBoard3D(container) {
         parts.pblocks.push({ r, c, solid, outline, on: t === 'q1' });
         return;
       }
+      if (t === '%' || t === 'Q0' || t === 'Q1') {
+        // Deep water; a crumbly bridge block may hang over it.
+        add(new THREE.Mesh(new THREE.BoxGeometry(1, 0.12, 1), deepMat), r, c, -0.24);
+        cliff(r, c, lift(r, c) - 0.1);
+        if (t !== '%') {
+          const block = add(new THREE.Mesh(new THREE.BoxGeometry(0.96, 0.24, 0.96), texMat(TEX.crackedTex(zone), { roughness: 0.9, bumpScale: 3, transparent: true })), r, c, -0.1);
+          block.receiveShadow = true;
+          block.castShadow = true;
+          parts.crumbles.push({ mesh: block, r, c, base: block.position.y, up: t === 'Q1' });
+        }
+        return;
+      }
+      if (t === 'Z' || t === 'Z+') {
+        // A golden cage around the hearts that sinks away once the boss is beaten.
+        add(new THREE.Mesh(floorGeo, floorMats[(r + c) % 2]), r, c, -0.1).receiveShadow = true;
+        cliff(r, c, lift(r, c));
+        const cage = new THREE.Group();
+        const gold = mat(COLORS.gold, shiny({ metalness: 0.85, roughness: 0.25 }));
+        for (const [x, z] of [[-0.36, -0.36], [0.36, -0.36], [-0.36, 0.36], [0.36, 0.36], [0, -0.36], [0, 0.36], [-0.36, 0], [0.36, 0]]) {
+          const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, WALL_H + 0.15, 8), gold);
+          bar.position.set(x, (WALL_H + 0.15) / 2, z);
+          bar.castShadow = true;
+          cage.add(bar);
+        }
+        const rim = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.05, 0.8), gold);
+        rim.position.y = WALL_H + 0.15;
+        cage.add(rim);
+        add(cage, r, c, 0);
+        parts.doors.push({ mesh: cage, r, c, y: cage.position.y, open: t === 'Z+' });
+        return;
+      }
       if (t === '~' || t === '=') {
         const water = add(new THREE.Mesh(new THREE.BoxGeometry(1, 0.12, 1), waterMat), r, c, -0.16);
         cliff(r, c, lift(r, c) - 0.02);
@@ -450,9 +808,20 @@ export function createBoard3D(container) {
       }
       const floorMat = t === '_' ? iceMat : t === 'x' ? crackedMat
         : snowMat && levelOf(level, r, c) >= 3 ? snowMat : floorMats[(r + c) % 2];
-      const floor = add(new THREE.Mesh(floorGeo, floorMat), r, c, t === 'x' ? -0.12 : -0.1);
+      const floor = add(new THREE.Mesh(floorGeo, floorMat), r, c, t === 'x' || t === 'h' ? -0.12 : -0.1);
       floor.receiveShadow = true;
       cliff(r, c, lift(r, c));
+      if (t === 'x' || t === 'h') {
+        // A cracked floor a boss can crash through, leaving a dark hole.
+        const hole = add(new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.36, 0.22, 24), mat(0x140d22, { roughness: 1 })), r, c, -0.1);
+        hole.visible = t === 'h';
+        floor.visible = t !== 'h';
+        parts.cracks.push({ floor, hole, r, c });
+      }
+      if (t === 'T') {
+        const trap = add(makeFlowerTrap(), r, c, 0.01);
+        parts.traps.push({ obj: trap, at: 0 });
+      }
 
       if (t === 'o') {
         const along = open(tile(r, c - 1)) || open(tile(r, c + 1)) ? 'x' : 'z';
@@ -587,6 +956,7 @@ export function createBoard3D(container) {
     prevParts = live;
     groups.set(g.level, buildArea(g.level, g, true));
     live = groups.get(g.level).parts;
+    setBoss(g);
     if (g.level + 1 < AREAS.length && !groups.has(g.level + 1)) {
       groups.set(g.level + 1, buildArea(g.level + 1, window.Samen.preview(g.level + 1), false));
     }
@@ -605,6 +975,94 @@ export function createBoard3D(container) {
     const half = Math.max(w, h) / 2 + 2;
     Object.assign(sun.shadow.camera, { left: -half, right: half, top: half, bottom: -half });
     sun.shadow.camera.updateProjectionMatrix();
+  }
+
+  // ---------- The boss ----------
+  let boss = null;
+
+  function placeBoss(level, pos) {
+    const p = toWorld(level, pos);
+    if (boss && boss.swim) p.y = -0.32;
+    return p;
+  }
+
+  function setBoss(g) {
+    if (boss) { dispose(boss.obj); boss = null; }
+    if (!g.boss || !g.boss.pos || !BOSS_MAKERS[g.boss.look]) return;
+    const obj = BOSS_MAKERS[g.boss.look]();
+    obj.rotation.y = Math.PI / 4;
+    obj.scale.setScalar(BOSS_SIZE);
+    boss = { obj, look: g.boss.look, swim: !!g.boss.swim, hits: g.boss.hits, path: [], t0: 0, dur: 1, hop: 0, level: g.level };
+    obj.position.copy(placeBoss(g.level, g.boss.pos));
+    boss.path = [obj.position.clone()];
+    scene.add(obj);
+    obj.traverse((o) => { if (o.material && o.material.emissive) o.userData.glow = [o.material.emissive.getHex(), o.material.emissiveIntensity]; });
+  }
+
+  function updateBoss(g) {
+    if (!boss || !g.boss) return;
+    const now = performance.now();
+    if (g.boss.hits > boss.hits) {
+      // Hit! Flash, puff, and pop back up at the start (or vanish for good).
+      boss.hits = g.boss.hits;
+      boss.hitAt = now;
+      boss.from = boss.obj.position.clone();
+      boss.to = g.boss.pos ? placeBoss(g.level, g.boss.pos) : null;
+      if (live) for (const tr of live.traps) tr.at = now;
+      return;
+    }
+    if (!g.boss.pos || boss.hitAt) return;
+    const target = placeBoss(g.level, g.boss.pos);
+    if (boss.path[boss.path.length - 1].distanceTo(target) > 1e-6) {
+      walk(boss, [target], STEP_MS * Math.max(1, Math.round(boss.obj.position.distanceTo(target))) ** 0.7, boss.swim ? 0.05 : 0.12);
+    }
+  }
+
+  function animateBoss(now) {
+    if (!boss) return;
+    const o = boss.obj;
+    if (boss.hitAt) {
+      const t = now - boss.hitAt;
+      const flash = t < 600 && Math.sin(t / 45) > 0;
+      o.traverse((m) => {
+        if (!m.material || !m.material.emissive) return;
+        m.material.emissive.setHex(flash ? 0xff3355 : m.userData.glow[0]);
+        m.material.emissiveIntensity = flash ? 0.8 : m.userData.glow[1];
+      });
+      if (t < 600) {
+        o.position.copy(boss.from);
+        o.position.x += Math.sin(t / 25) * 0.06;
+        return;
+      }
+      if (!boss.puffed) { boss.puffed = true; warpFx(boss.from, boss.to ? 0xffffff : COLORS.gold); }
+      if (!boss.to) {
+        // Beaten: spin up into a burst of stars.
+        const k = Math.min(1, (t - 600) / 700);
+        o.rotation.y = Math.PI / 4 + k * Math.PI * 6;
+        o.scale.setScalar(Math.max(0.001, 1 - k) * BOSS_SIZE);
+        o.position.copy(boss.from).add(new THREE.Vector3(0, k * 1.2, 0));
+        if (k >= 1) { dispose(o); boss = null; }
+        return;
+      }
+      const k = Math.min(1, (t - 600) / 500);
+      o.scale.setScalar(Math.max(0.001, k < 0.5 ? 1 - k * 2 : (k - 0.5) * 2) * BOSS_SIZE);
+      o.position.copy(k < 0.5 ? boss.from : boss.to);
+      if (k >= 1) {
+        o.scale.setScalar(BOSS_SIZE);
+        boss.hitAt = 0;
+        boss.puffed = false;
+        boss.path = [boss.to.clone()];
+        boss.t0 = 0;
+      }
+      return;
+    }
+    const t = Math.min(1, Math.max(0, (now - boss.t0) / boss.dur));
+    const p = along(boss.path, t);
+    p.y += boss.hop * Math.abs(Math.sin(Math.PI * t)) + Math.sin(now / 380) * (boss.swim ? 0.04 : 0.02);
+    o.position.copy(p);
+    o.scale.set(BOSS_SIZE * (1 + Math.sin(now / 260) * 0.02), BOSS_SIZE * (1 - Math.sin(now / 260) * 0.02), BOSS_SIZE);
+    if (boss.look === 'inktvis') o.children.forEach((c) => { if (c.userData.wave !== undefined) c.rotation.y = Math.sin(now / 300 + c.userData.wave) * 0.4; });
+    if (boss.look === 'spook') o.position.y += 0.15 + Math.sin(now / 500) * 0.06;
   }
 
   // Keeps both players in view where possible. Online, when they are far
@@ -742,6 +1200,14 @@ export function createBoard3D(container) {
     for (const sp of parts.springs) if (sp.used) { sp.at = now; sp.used = false; }
     for (const q of parts.pblocks) q.on = g.tiles[q.r][q.c] === 'q1';
     pTimer = g.ptimer;
+    for (const k of parts.cracks) {
+      const hole = g.tiles[k.r][k.c] === 'h';
+      if (hole && !k.hole.visible) smash(k.floor.parent.position.x + k.c, k.r - (g.tiles.length - 1) / 2);
+      k.hole.visible = hole;
+      k.floor.visible = !hole;
+    }
+    for (const q of parts.crumbles) q.up = g.tiles[q.r][q.c] === 'Q1';
+    updateBoss(g);
     for (const sw of parts.switches) sw.pressed = g.ptimer > 0;
   }
 
@@ -903,6 +1369,7 @@ export function createBoard3D(container) {
         });
       });
       animateEffects(now);
+      animateBoss(now);
       for (let i = debris.length - 1; i >= 0; i--) {
         const d = debris[i];
         const t = (now - d.t0) / 1000;
@@ -956,6 +1423,17 @@ export function createBoard3D(container) {
           const squash = t < 1 ? 1 - Math.sin(t * Math.PI) * 0.45 * (1 - t) : 1;
           sp.obj.userData.coil.scale.y = squash;
           sp.obj.userData.top.position.y = 0.06 + 0.27 * squash;
+        }
+        for (const q of live.crumbles) {
+          const target = q.up ? q.base : q.base - 1.6;
+          q.mesh.position.y += (target - q.mesh.position.y) * (q.up ? 0.15 : 0.08);
+          q.mesh.material.opacity = Math.min(1, Math.max(0, 1 + (q.mesh.position.y - q.base) / 1.2));
+          q.mesh.visible = q.mesh.material.opacity > 0.02;
+        }
+        for (const tr of live.traps) {
+          const t = (now - tr.at) / 700;
+          const shut = t < 1 ? Math.sin(Math.min(1, t * 3) * Math.PI / 2) * (t < 0.6 ? 1 : (1 - t) / 0.4) : 0;
+          tr.obj.userData.jaws.forEach((j, i) => { j.rotation.x = (i ? 1 : -1) * 1.2 * (1 - shut) + Math.sin(now / 500 + i) * 0.05; });
         }
         for (const sw of live.switches) sw.button.scale.y += ((sw.pressed ? 0.3 : 1) - sw.button.scale.y) * 0.3;
         for (const q of live.pblocks) {
